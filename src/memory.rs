@@ -29,6 +29,12 @@ impl Memory{
             panic!("Memory word out of bounds at address 0x{:X}", address);
         }
     }
-    pub fn write_bytes(){}
+    pub fn write_bytes(&mut self, address: u32, bytes: &[u8]) {
+        let end = address as usize + bytes.len();
+        if end > self.data.len() {
+            panic!("Memory write out of bounds at address 0x{:X}", address);
+        }
+        self.data[address as usize .. end].copy_from_slice(bytes);
+    }
 
 }

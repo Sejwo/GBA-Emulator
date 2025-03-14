@@ -5,21 +5,21 @@ use crate::cpu_instructions::instruction_decoding::{Instruction, decode_instruct
 #[allow(non_snake_case)]
 #[derive(Debug, Default, Copy, Clone)]
 pub struct CpuState {
-    pub regular_registers: [i32; 16], //regular registers
+    pub regular_registers: [u32; 16], //regular registers
     pub PC: u32,                      //Program Counter
     pub SP: u32,                      //Stack Pointer
     pub CPSR: Cpsr, //Current Program Status Register uses custom struct for clearer flag management
 }
 
 impl CpuState {
-    pub fn get_register(&self, reg_num: usize) -> i32 {
+    pub fn get_register(&self, reg_num: usize) -> u32 {
         if reg_num < 16 {
-            self.regular_registers[reg_num] as i32
+            self.regular_registers[reg_num] as u32
         } else {
             panic!("Invalid register number requested: {}", reg_num);
         }
     }
-    pub fn set_register(&mut self, reg_num: usize, value: i32) -> () {
+    pub fn set_register(&mut self, reg_num: usize, value: u32) -> () {
         if reg_num < 16 {
             self.regular_registers[reg_num] = value;
         } else {
@@ -182,18 +182,18 @@ impl Cpsr {
     }
 }
 
-pub struct Cpu {
+pub struct Cpu{
     pub cpu_state: CpuState,
 }
-
 impl Cpu {
     pub fn new() -> Self {
         Cpu {
             cpu_state: CpuState::default(),
         }
     }
+
     pub fn interpret_instruction(&mut self, instruction: u32) {
-        let decoded = decode_instruction(instruction as u32);
+        let decoded = decode_instruction(instruction);
         match decoded {
             Instruction::MovImmediate { rd, imm16 } => {
                 self.mov_immediete(rd, imm16);
@@ -201,10 +201,58 @@ impl Cpu {
             Instruction::MovRegister { rd, rm } => {
                 self.mov_register(rd, rm);
             }
+            Instruction::AddImmediate { rd, rn, imm12 } => {
+                self.add_immediate(rd, rn, imm12);
+            }
+            Instruction::AddRegister { rd, rn, rm } => {
+                self.add_register(rd, rn, rm);
+            }
+            Instruction::SubImmediate { rd, rn, imm12 } => {
+                self.sub_immediate(rd, rn, imm12);
+            }
+            Instruction::SubRegister { rd, rn, rm } => {
+                self.sub_register(rd, rn, rm);
+            }
+            Instruction::AndImmediate { rd, rn, imm12 } => {
+                self.and_immediate(rd, rn, imm12);
+            }
+            Instruction::AndRegister { rd, rn, rm } => {
+                self.and_register(rd, rn, rm);
+            }
+            Instruction::OrrImmediate { rd, rn, imm12 } => {
+                self.orr_immediate(rd, rn, imm12);
+            }
+            Instruction::OrrRegister { rd, rn, rm } => {
+                self.orr_register(rd, rn, rm);
+            }
             Instruction::Unknown(u32) => {
                 todo!("Add instruction for 0x{:X}", u32)
             }
         }
     }
+    pub fn run_program(&mut self, memory: &Memory) {
+        const HALT_INSTRUCTION: u32 = 0xFFFFFFFF;
+        loop {
+            // Fetch the next instruction using the PC in CpuState.
+            let instruction = self.cpu_state.fetch_instruction(memory);
+            if instruction == HALT_INSTRUCTION{
+                for (i, register) in self.cpu_state.regular_registers.iter().enumerate(){
+                    println!("R{}: 0x{:X} \n", i, register);
+                }
+                println!("End of program");
+                break;
+            }
+            let decoded = decode_instruction(instruction);
+            match decoded {
+                Instruction::Unknown(val) => {
+                    println!("Encountered unknown instruction: 0x{:08X}. Halting execution.", val);
+                    break;
+                }
+                _ => {
+                    // Execute the instruction.
+                    self.interpret_instruction(instruction);
+                }
+            }
+        }
+    }
 }
-

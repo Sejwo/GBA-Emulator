@@ -2,36 +2,32 @@
 use emulator::cpu::Cpu;
 use emulator::memory::Memory;
 
+mod memory;
+mod cpu;
+mod cpu_instructions;
 fn main() {
+    // Create a memory instance with 1024 bytes.
+    let mut memory = Memory::new(1024);
+
+    // Load sample instructions into memory.
+    // 1. MOV R5, #123: Encoded in little-endian as [0x7B, 0x50, 0xA0, 0xE3]
+    let mov_imm: [u8; 4] = [0x7B, 0x50, 0xA0, 0xE3];
+    memory.write_bytes(0, &mov_imm);
+
+    // 2. MOV R3, R5
+    let mov_reg: [u8; 4] = [0x05, 0x30, 0xA0, 0xE1];
+    memory.write_bytes(4, &mov_reg);
+
+    // 3. Unknown instruction to halt execution: [0xFF, 0xFF, 0xFF, 0xFF]
+    let unknown: [u8; 4] = [0xFF, 0xFF, 0xFF, 0xFF];
+    memory.write_bytes(8, &unknown);
+
+    // Create a CPU instance.
     let mut cpu = Cpu::new();
-    let memory = Memory::new(1024);
 
-    cpu.cpu_state.set_register(5, 99);
-    println!("Value of R5 before MOV: {}", cpu.cpu_state.get_register(5));
+    // Initialize the program counter (PC) to the start of the program.
+    cpu.cpu_state.PC = 0;
 
-    // MOV R5, #123: Little-Endian bytes: [0x7B, 0x50, 0xA0, 0xE3]
-    let immediate_move_instruction: u32 = u32::from_le_bytes([0x7B, 0x50, 0xA0, 0xE3]);
-    cpu.interpret_instruction(immediate_move_instruction);
-    println!("Value of R5 after MOV R5, #123: {}", cpu.cpu_state.get_register(5));
-
-    cpu.cpu_state.set_register(7, 0xABC);
-    cpu.cpu_state.set_register(3, 0);
-    // MOV R3, R7: Little-Endian bytes: [0x07, 0x30, 0xA0, 0xE1]
-    let mov_r3_r7: u32 = u32::from_le_bytes([0x07, 0x30, 0xA0, 0xE1]);
-    cpu.interpret_instruction(mov_r3_r7);
-    println!("Value of R3 after MOV R3, R7: 0x{:X}", cpu.cpu_state.get_register(3));
-
-    cpu.cpu_state.set_register(12, 0x123);
-    cpu.cpu_state.set_register(1, 0);
-    // MOV R1, R12: Little-Endian bytes: [0x0C, 0x10, 0xA0, 0xE1]
-    let mov_r1_r12: u32 = u32::from_le_bytes([0x0C, 0x10, 0xA0, 0xE1]);
-    cpu.interpret_instruction(mov_r1_r12);
-    println!("Value of R1 after MOV R1, R12: 0x{:X}", cpu.cpu_state.get_register(1));
-
-    cpu.cpu_state.set_register(0, 0x999);
-    cpu.cpu_state.set_register(14, 0);
-    // MOV R14, R0: Little-Endian bytes: [0x00, 0xE0, 0xA0, 0xE1]
-    let mov_r14_r0: u32 = u32::from_le_bytes([0x00, 0xE0, 0xA0, 0xE1]);
-    cpu.interpret_instruction(mov_r14_r0);
-    println!("Value of R14 after MOV R14, R0: 0x{:X}", cpu.cpu_state.get_register(14));
+    // Run the program. The CPU will fetch, decode, and execute instructions in a loop.
+    cpu.run_program(&memory);
 }
