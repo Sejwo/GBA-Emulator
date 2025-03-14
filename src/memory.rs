@@ -29,6 +29,6 @@ impl Memory{
             panic!("Memory word out of bounds at address 0x{:X}", address);
         }
     }
-    pub fn write_bytes()
+    pub fn write_bytes(){}
 
 }
