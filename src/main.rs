@@ -6,6 +6,8 @@ mod memory;
 mod cpu;
 mod cpu_instructions;
 fn main() {
+    #[allow(unused_variables)]
+    let mut victor:Vec<u8> = vec![];
     // Create a memory instance with 1024 bytes.
     let mut memory = Memory::new(1024);
 

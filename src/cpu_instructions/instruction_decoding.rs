@@ -108,6 +108,44 @@ pub enum Instruction {
         shift_amount: u8,
         set_flags: bool,
     },
+    EorImmediate {
+        rd: usize,
+        rn: usize,
+        imm12: u32,
+        set_flags: bool,
+    },
+    EorRegister {
+        rd: usize,
+        rn: usize,
+        rm: usize,
+        shift: ShiftType,
+        shift_amount: u8,
+        set_flags: bool,
+    },
+    BicImmediate {
+        rd: usize,
+        rn: usize,
+        imm12: u32,
+        set_flags: bool,
+    },
+    BicRegister {
+        rd: usize,
+        rn: usize,
+        rm: usize,
+        shift: ShiftType,
+        shift_amount: u8,
+        set_flags: bool,
+    },
+    CmnImmediate {
+        rn: usize,
+        imm12: u32,
+    },
+    CmnRegister {
+        rn: usize,
+        rm: usize,
+        shift: ShiftType,
+        shift_amount: u8,
+    },
     Unknown(u32),
     Nop,
 }
@@ -133,6 +171,9 @@ pub fn decode_arm(instruction: u32) -> Instruction {
     let rn = ((instruction >> 16) & 0xF) as usize;
     let rd = ((instruction >> 12) & 0xF) as usize;
     let i_bit = (instruction >> 25) & 1;
+    println!("Decoding instruction: {:X}", instruction);
+    println!("Opcode: {:X}", opcode);
+    println!("I-bit: {:X}", i_bit);
 
     // Immediate data processing instructions.
     if i_bit == 1 {
@@ -140,6 +181,12 @@ pub fn decode_arm(instruction: u32) -> Instruction {
         let set_flags = true; // Force true for immediate instructions per tests.
         return match opcode {
             0b0000 => Instruction::AndImmediate {
+                rd,
+                rn,
+                imm12,
+                set_flags,
+            },
+            0b0001 => Instruction::EorImmediate {
                 rd,
                 rn,
                 imm12,
@@ -169,6 +216,7 @@ pub fn decode_arm(instruction: u32) -> Instruction {
                 imm12,
                 set_flags,
             },
+            0b1011 => Instruction::CmnImmediate { rn, imm12 },
             0b1100 => Instruction::OrrImmediate {
                 rd,
                 rn,
@@ -177,6 +225,12 @@ pub fn decode_arm(instruction: u32) -> Instruction {
             },
             0b1101 => Instruction::MovImmediate {
                 rd,
+                imm12,
+                set_flags,
+            },
+            0b1110 => Instruction::BicImmediate {
+                rd,
+                rn,
                 imm12,
                 set_flags,
             },
@@ -200,6 +254,14 @@ pub fn decode_arm(instruction: u32) -> Instruction {
         let set_flags = s_extracted;
         return match opcode {
             0b0000 => Instruction::AndRegister {
+                rd,
+                rn,
+                rm,
+                shift: shift_type,
+                shift_amount,
+                set_flags,
+            },
+            0b0001 => Instruction::EorRegister {
                 rd,
                 rn,
                 rm,
@@ -239,6 +301,12 @@ pub fn decode_arm(instruction: u32) -> Instruction {
                 shift_amount,
                 set_flags,
             },
+            0b1011 => Instruction::CmnRegister {
+                rn,
+                rm,
+                shift: shift_type,
+                shift_amount,
+            },
             0b1100 => Instruction::OrrRegister {
                 rd,
                 rn,
@@ -249,6 +317,14 @@ pub fn decode_arm(instruction: u32) -> Instruction {
             },
             0b1101 => Instruction::MovRegister {
                 rd,
+                rm,
+                shift: shift_type,
+                shift_amount,
+                set_flags,
+            },
+            0b1110 => Instruction::BicRegister {
+                rd,
+                rn,
                 rm,
                 shift: shift_type,
                 shift_amount,
@@ -572,7 +648,112 @@ mod tests {
             }
         );
     }
+    #[test]
+    fn test_eor_immediate_without_s() {
+        let instruction: u32 = u32::from_le_bytes([0x05, 0x10, 0x22, 0xE2]); // EOR R1, R2, #5
+        let decoded = decode_arm(instruction);
+        assert_eq!(
+            decoded,
+            Instruction::EorImmediate {
+                rd: 1,
+                rn: 2,
+                imm12: 5,
+                set_flags: true
+            }
+        );
 
+        let mut cpu = crate::cpu::Cpu::new();
+        cpu.cpu_state.set_register(2, 0b1010); // R2 = 10
+        cpu.eor_immediate(1, 2, 5, false); // R1 = R2 ^ 5
+
+        assert_eq!(cpu.cpu_state.get_register(1), 0b1010 ^ 0b0101); // 10 ^ 5 = 15 (0b1111)
+    }
+    #[test]
+    fn test_eor_register_with_s() {
+        let instruction: u32 = u32::from_le_bytes([0x03, 0x10, 0x32, 0xE0]); // EORS R1, R2, R3
+        let decoded = decode_arm(instruction);
+        assert_eq!(
+            decoded,
+            Instruction::EorRegister {
+                rd: 1,
+                rn: 2,
+                rm: 3,
+                shift: ShiftType::LSL,
+                shift_amount: 0,
+                set_flags: true
+            }
+        );
+
+        let mut cpu = crate::cpu::Cpu::new();
+        cpu.cpu_state.set_register(2, 0b1100); // R2 = 12
+        cpu.cpu_state.set_register(3, 0b1010); // R3 = 10
+        cpu.eor_register(1, 2, 3, ShiftType::LSL, 0, true); // R1 = R2 ^ R3
+
+        assert_eq!(cpu.cpu_state.get_register(1), 0b1100 ^ 0b1010); // 12 ^ 10 = 6 (0b0110)
+                                                                    // You'll also need to assert the flags here based on the result (e.g., Z flag)
+        assert_eq!(cpu.cpu_state.CPSR.is_zero(), false); // Result is not zero
+        assert_eq!(cpu.cpu_state.CPSR.is_negative(), false); // MSB is 0
+                                                             // Carry and Overflow flags are typically 0 for logical operations
+        assert_eq!(cpu.cpu_state.CPSR.is_carry(), false);
+        assert_eq!(cpu.cpu_state.CPSR.is_overflow(), false);
+    }
+
+    #[test]
+    fn test_decode_bic_immediate() {
+        //BIC R0, R1, #7
+        let instruction: u32 = u32::from_le_bytes([0x07, 0x00, 0xC1, 0xE3]);
+        let decoded = decode_arm(instruction);
+        assert_eq!(
+            decoded,
+            Instruction::BicImmediate {
+                rd: 0,
+                rn: 1,
+                imm12: 7,
+                set_flags: true
+            }
+        );
+    }
+    #[test]
+    fn test_decode_bic_register() {
+        // BIC R0, R1, R2
+        let instruction = u32::from_le_bytes([0x02, 0x00, 0xC1, 0xE1]);
+        let decoded = decode_arm(instruction);
+        assert_eq!(
+            decoded,
+            Instruction::BicRegister {
+                rd: 0,
+                rn: 1,
+                rm: 2,
+                shift: ShiftType::LSL,
+                shift_amount: 0,
+                set_flags: false
+            }
+        );
+    }
+
+    #[test]
+    fn test_decode_cmn_immediate() {
+        // CMN R0, #5
+        let instruction: u32 = u32::from_le_bytes([0x05, 0x00, 0x70, 0xE3]);
+        let decoded = decode_arm(instruction);
+        assert_eq!(decoded, Instruction::CmnImmediate { rn: 0, imm12: 5 });
+    }
+
+    #[test]
+    fn test_decode_cmn_register() {
+        // CMN R0, R1
+        let instruction: u32 = u32::from_le_bytes([0x01, 0x00, 0x70, 0xE1]);
+        let decoded = decode_arm(instruction);
+        assert_eq!(
+            decoded,
+            Instruction::CmnRegister {
+                rn: 0,
+                rm: 1,
+                shift: ShiftType::LSL,
+                shift_amount: 0,
+            }
+        );
+    }
     #[test]
     fn test_decode_unknown() {
         let instruction = 0xFFFFFFFF; // Invalid instruction

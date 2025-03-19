@@ -251,4 +251,72 @@ impl Cpu {
             self.update_arithmetic_flags(result, carry_out, overflow);
         }
     }
+    pub fn eor_immediate(&mut self, rd: usize, rn: usize, imm12: u32, set_flags: bool) {
+        let operand_1 = self.cpu_state.get_register(rn);
+        let operand_2 = imm12;
+        let result = operand_1 ^ operand_2;
+        self.cpu_state.set_register(rd, result);
+        if set_flags {
+            self.update_logical_flags(result, false);
+        }
+    }
+    pub fn eor_register(
+        &mut self,
+        rd: usize,
+        rm: usize,
+        rn: usize,
+        shift: ShiftType,
+        shift_amount: u8,
+        set_flags: bool,
+    ) {
+        let operand_1 = self.cpu_state.get_register(rn);
+        let (operand_2, carry_out) =
+            self.apply_shift(self.cpu_state.get_register(rm), shift, shift_amount);
+        let result = operand_1 ^ operand_2;
+        self.cpu_state.set_register(rd, result);
+        if set_flags {
+            self.update_logical_flags(result, carry_out);
+        }
+    }
+    pub fn bic_immediate(&mut self, rd: usize, rn: usize, imm12: u32, set_flags: bool) {
+        let operand_1 = self.cpu_state.get_register(rn);
+        let operand_2 = imm12;
+        let result = operand_1 & (!operand_2);
+        self.cpu_state.set_register(rd, result);
+        if set_flags {
+            self.update_logical_flags(result, false);
+        }
+    }
+    pub fn bic_register(
+        &mut self,
+        rd: usize,
+        rn: usize,
+        rm: usize,
+        shift: ShiftType,
+        shift_amount: u8,
+        set_flags: bool,
+    ) {
+        let operand_1 = self.cpu_state.get_register(rn);
+        let (operand_2, carry_out) =
+            self.apply_shift(self.cpu_state.get_register(rm), shift, shift_amount);
+        let result = operand_1 & (!operand_2);
+        self.cpu_state.set_register(rd, result);
+        if set_flags {
+            self.update_logical_flags(result, carry_out);
+        }
+    }
+    pub fn cmn_immediate(&mut self, rn: usize, imm12: u32) {
+        let operand_1 = self.cpu_state.get_register(rn);
+        let operand_2 = imm12;
+        let (result, overflow) = operand_1.overflowing_add(operand_2);
+        let carry = result < operand_1;
+        self.update_arithmetic_flags(result, carry, overflow);
+    }
+    pub fn cmn_register(&mut self, rn: usize, rm: usize, shift: ShiftType, shift_amount: u8) {
+        let operand_1 = self.cpu_state.get_register(rn);
+        let (operand_2, carry_out) =
+            self.apply_shift(self.cpu_state.get_register(rm), shift, shift_amount);
+        let (result, overflow) = operand_1.overflowing_add(operand_2);
+        self.update_arithmetic_flags(result, carry_out, overflow);
+    }
 }

@@ -443,6 +443,53 @@ impl Cpu {
                 } => {
                     self.sbc_register(rd, rn, rm, shift, shift_amount, set_flags);
                 }
+                Instruction::EorImmediate {
+                    rd,
+                    rn,
+                    imm12,
+                    set_flags,
+                } => {
+                    self.eor_immediate(rd, rn, imm12, set_flags);
+                }
+                Instruction::EorRegister {
+                    rd,
+                    rn,
+                    rm,
+                    shift,
+                    shift_amount,
+                    set_flags,
+                } => {
+                    self.eor_register(rd, rm, rn, shift, shift_amount, set_flags);
+                }
+                Instruction::BicImmediate {
+                    rd,
+                    rn,
+                    imm12,
+                    set_flags,
+                } => {
+                    self.bic_immediate(rd, rn, imm12, set_flags);
+                }
+                Instruction::BicRegister {
+                    rd,
+                    rn,
+                    rm,
+                    shift,
+                    shift_amount,
+                    set_flags,
+                } => {
+                    self.bic_register(rd, rn, rm, shift, shift_amount, set_flags);
+                }
+                Instruction::CmnImmediate { rn, imm12 } => {
+                    self.cmn_immediate(rn, imm12);
+                }
+                Instruction::CmnRegister {
+                    rn,
+                    rm,
+                    shift,
+                    shift_amount,
+                } => {
+                    self.cmn_register(rn, rm, shift, shift_amount);
+                }
                 Instruction::Unknown(instruction) => {
                     // Handle unknown instructions (e.g., raise an exception).
                     panic!("Unknown instruction: 0x{:X}", instruction);
