@@ -6,10 +6,10 @@ use crate::memory::Memory;
 #[derive(Debug, Default, Copy, Clone)]
 pub struct CpuState {
     pub regular_registers: [u32; 16], // Regular registers (r0-r15)
-    pub PC: u32,                    // Program Counter
-    pub SP: u32,                    // Stack Pointer
-    pub CPSR: Cpsr,                 // Current Program Status Register
-    pub SPSR: Cpsr,                 // Saved Program Status Register
+    pub PC: u32,                      // Program Counter
+    pub SP: u32,                      // Stack Pointer
+    pub CPSR: Cpsr,                   // Current Program Status Register
+    pub SPSR: Cpsr,                   // Saved Program Status Register
 }
 #[allow(dead_code)]
 impl CpuState {
@@ -32,7 +32,7 @@ impl CpuState {
     pub fn fetch_instruction(&mut self, memory: &Memory) -> (u32, bool) {
         let instruction = memory.read_word(self.PC);
         self.PC += 4;
-        (instruction, self.CPSR.is_thumb_state())  // Return instruction and T-bit
+        (instruction, self.CPSR.is_thumb_state()) // Return instruction and T-bit
     }
 }
 
@@ -317,9 +317,12 @@ impl Cpu {
             //If condition is met
             let decoded = decode_arm(instruction);
             match decoded {
-                Instruction::MovImmediate { rd, imm12, set_flags } => {
-                    self.cpu_state.set_register(rd, imm12);
-                    self.update_logical_flags(imm12, false);
+                Instruction::MovImmediate {
+                    rd,
+                    imm12,
+                    set_flags,
+                } => {
+                    self.mov_immediete(rd, imm12);
                 }
                 Instruction::MovRegister {
                     rd,
@@ -328,12 +331,7 @@ impl Cpu {
                     shift_amount,
                     set_flags,
                 } => {
-                    let (result, carry) =
-                        self.apply_shift(self.cpu_state.get_register(rm), shift, shift_amount);
-                    self.cpu_state.set_register(rd, result);
-                    if set_flags {
-                        self.update_logical_flags(result, carry);
-                    }
+                    self.mov_register(rd, rm, shift, shift_amount, set_flags);
                 }
                 Instruction::AddImmediate {
                     rd,
@@ -341,14 +339,7 @@ impl Cpu {
                     imm12,
                     set_flags,
                 } => {
-                    let operand_1 = self.cpu_state.get_register(rn);
-                    let operand_2 = imm12;
-                    let (result, overflow) = operand_1.overflowing_add(operand_2);
-                    let carry = result < operand_1; // Check for carry
-                    self.cpu_state.set_register(rd, result);
-                    if set_flags {
-                        self.update_arithmetic_flags(result, carry, overflow); // Use the helper
-                    }
+                    self.add_immediate(rd, rn, imm12, set_flags);
                 }
                 Instruction::AddRegister {
                     rd,
@@ -358,14 +349,7 @@ impl Cpu {
                     shift_amount,
                     set_flags,
                 } => {
-                    let operand_1 = self.cpu_state.get_register(rn);
-                    let (operand_2, carry_out) =
-                        self.apply_shift(self.cpu_state.get_register(rm), shift, shift_amount);
-                    let (result, overflow) = operand_1.overflowing_add(operand_2);
-                    self.cpu_state.set_register(rd, result);
-                    if set_flags {
-                        self.update_arithmetic_flags(result, carry_out, overflow);
-                    }
+                    self.add_register(rd, rn, rm, shift, shift_amount, set_flags);
                 }
                 Instruction::SubImmediate {
                     rd,
@@ -373,14 +357,7 @@ impl Cpu {
                     imm12,
                     set_flags,
                 } => {
-                    let operand_1 = self.cpu_state.get_register(rn);
-                    let operand_2 = imm12;
-                    let (result, overflow) = operand_1.overflowing_sub(operand_2);
-                    let carry = operand_1 >= operand_2; // Borrow = NOT Carry,  so Carry is set if NO borrow
-                    self.cpu_state.set_register(rd, result);
-                    if set_flags {
-                        self.update_arithmetic_flags(result, carry, overflow);
-                    }
+                    self.sub_immediate(rd, rn, imm12, set_flags);
                 }
                 Instruction::SubRegister {
                     rd,
@@ -390,15 +367,7 @@ impl Cpu {
                     shift_amount,
                     set_flags,
                 } => {
-                    let operand_1 = self.cpu_state.get_register(rn);
-                    let (operand_2, carry_out) =
-                        self.apply_shift(self.cpu_state.get_register(rm), shift, shift_amount);
-                    let (result, overflow) = operand_1.overflowing_sub(operand_2);
-                    let carry = operand_1 >= operand_2; // Borrow = NOT Carry
-                    self.cpu_state.set_register(rd, result);
-                    if set_flags {
-                        self.update_arithmetic_flags(result, carry, overflow);
-                    }
+                    self.sub_register(rd, rn, rm, shift, shift_amount, set_flags);
                 }
                 Instruction::AndImmediate {
                     rd,
@@ -406,14 +375,8 @@ impl Cpu {
                     imm12,
                     set_flags,
                 } => {
-                    let operand_1 = self.cpu_state.get_register(rn);
-                    let result = operand_1 & imm12;
-                    self.cpu_state.set_register(rd, result);
-                    if set_flags {
-                        self.update_logical_flags(result, false); //Carry out is unchanged by AND
-                    }
+                    self.and_immediate(rd, rn, imm12, set_flags);
                 }
-
                 Instruction::AndRegister {
                     rd,
                     rn,
@@ -422,14 +385,7 @@ impl Cpu {
                     shift_amount,
                     set_flags,
                 } => {
-                    let operand_1 = self.cpu_state.get_register(rn);
-                    let (operand_2, carry_out) =
-                        self.apply_shift(self.cpu_state.get_register(rm), shift, shift_amount);
-                    let result = operand_1 & operand_2;
-                    self.cpu_state.set_register(rd, result);
-                    if set_flags {
-                        self.update_logical_flags(result, carry_out);
-                    }
+                    self.and_register(rd, rn, rm, shift, shift_amount, set_flags);
                 }
                 Instruction::OrrImmediate {
                     rd,
@@ -437,14 +393,8 @@ impl Cpu {
                     imm12,
                     set_flags,
                 } => {
-                    let operand_1 = self.cpu_state.get_register(rn);
-                    let result = operand_1 | imm12;
-                    self.cpu_state.set_register(rd, result);
-                    if set_flags {
-                        self.update_logical_flags(result, false); //Carry out is unchanged
-                    }
+                    self.orr_immediate(rd, rn, imm12, set_flags);
                 }
-
                 Instruction::OrrRegister {
                     rd,
                     rn,
@@ -453,14 +403,26 @@ impl Cpu {
                     shift_amount,
                     set_flags,
                 } => {
-                    let operand_1 = self.cpu_state.get_register(rn);
-                    let (operand_2, carry_out) =
-                        self.apply_shift(self.cpu_state.get_register(rm), shift, shift_amount);
-                    let result = operand_1 | operand_2;
-                    self.cpu_state.set_register(rd, result);
-                    if set_flags {
-                        self.update_logical_flags(result, carry_out);
-                    }
+                    self.orr_register(rd, rn, rm, shift, shift_amount, set_flags);
+                }
+                // Add the new ADC instruction handling here
+                Instruction::AdcImmediate {
+                    rd,
+                    rn,
+                    imm12,
+                    set_flags,
+                } => {
+                    self.adc_immediate(rd, rn, imm12, set_flags);
+                }
+                Instruction::AdcRegister {
+                    rd,
+                    rn,
+                    rm,
+                    shift,
+                    shift_amount,
+                    set_flags,
+                } => {
+                    self.adc_register(rd, rn, rm, shift, shift_amount, set_flags);
                 }
                 Instruction::Unknown(instruction) => {
                     // Handle unknown instructions (e.g., raise an exception).
@@ -475,7 +437,7 @@ impl Cpu {
         const HALT_INSTRUCTION: u32 = 0xFFFFFFFF; // Or another sentinel value.
         loop {
             let (instruction, is_thumb) = self.cpu_state.fetch_instruction(memory);
-            if is_thumb{
+            if is_thumb {
                 todo!("Implement Thumb mode")
             }
             if instruction == HALT_INSTRUCTION {

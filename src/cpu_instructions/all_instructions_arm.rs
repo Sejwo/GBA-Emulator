@@ -1,7 +1,9 @@
 use crate::cpu::Cpu;
 use crate::cpu_instructions::instruction_decoding::ShiftType; // Import ShiftType
 
+#[allow(unused)]
 impl Cpu {
+    #[inline(always)]
     pub fn add_immediate(&mut self, rd: usize, rn: usize, imm12: u32, set_flags: bool) {
         let operand_1 = self.cpu_state.get_register(rn);
         let operand_2 = imm12;
@@ -12,39 +14,57 @@ impl Cpu {
             self.update_arithmetic_flags(result, carry, overflow);
         }
     }
-
-    pub fn add_register(&mut self, rd: usize, rn: usize, rm: usize, shift: ShiftType, shift_amount: u8, set_flags: bool) {
+    #[inline(always)]
+    pub fn add_register(
+        &mut self,
+        rd: usize,
+        rn: usize,
+        rm: usize,
+        shift: ShiftType,
+        shift_amount: u8,
+        set_flags: bool,
+    ) {
         let operand_1 = self.cpu_state.get_register(rn);
-        let (operand_2, carry_out) = self.apply_shift(self.cpu_state.get_register(rm), shift, shift_amount);
+        let (operand_2, carry_out) =
+            self.apply_shift(self.cpu_state.get_register(rm), shift, shift_amount);
         let (result, overflow) = operand_1.overflowing_add(operand_2);
         self.cpu_state.set_register(rd, result);
         if set_flags {
             self.update_arithmetic_flags(result, carry_out, overflow); // Use carry_out from shift
         }
     }
-
+    #[inline(always)]
     pub fn sub_immediate(&mut self, rd: usize, rn: usize, imm12: u32, set_flags: bool) {
         let operand_1 = self.cpu_state.get_register(rn);
         let operand_2 = imm12;
         let (result, overflow) = operand_1.overflowing_sub(operand_2);
-        let carry = operand_1 >= operand_2;  // Carry flag is set if *no* borrow occurred.
+        let carry = operand_1 >= operand_2; // Carry flag is set if *no* borrow occurred.
         self.cpu_state.set_register(rd, result);
         if set_flags {
             self.update_arithmetic_flags(result, carry, overflow);
         }
     }
-
-    pub fn sub_register(&mut self, rd: usize, rn: usize, rm: usize, shift: ShiftType, shift_amount: u8, set_flags: bool) {
+    #[inline(always)]
+    pub fn sub_register(
+        &mut self,
+        rd: usize,
+        rn: usize,
+        rm: usize,
+        shift: ShiftType,
+        shift_amount: u8,
+        set_flags: bool,
+    ) {
         let operand_1 = self.cpu_state.get_register(rn);
-        let (operand_2, carry_out) = self.apply_shift(self.cpu_state.get_register(rm), shift, shift_amount);
+        let (operand_2, carry_out) =
+            self.apply_shift(self.cpu_state.get_register(rm), shift, shift_amount);
         let (result, overflow) = operand_1.overflowing_sub(operand_2);
         let carry = operand_1 >= operand_2; // Carry flag is set if *no* borrow occurred
         self.cpu_state.set_register(rd, result);
         if set_flags {
             self.update_arithmetic_flags(result, carry, overflow);
-       }
+        }
     }
-
+    #[inline(always)]
     pub fn and_immediate(&mut self, rd: usize, rn: usize, imm12: u32, set_flags: bool) {
         let operand_1 = self.cpu_state.get_register(rn);
         let result = operand_1 & imm12;
@@ -53,17 +73,26 @@ impl Cpu {
             self.update_logical_flags(result, false); // Carry flag is unchanged (in most cases)
         }
     }
-
-    pub fn and_register(&mut self, rd: usize, rn: usize, rm: usize, shift: ShiftType, shift_amount: u8, set_flags: bool) {
+    #[inline(always)]
+    pub fn and_register(
+        &mut self,
+        rd: usize,
+        rn: usize,
+        rm: usize,
+        shift: ShiftType,
+        shift_amount: u8,
+        set_flags: bool,
+    ) {
         let operand_1 = self.cpu_state.get_register(rn);
-        let (operand_2, carry_out) = self.apply_shift(self.cpu_state.get_register(rm), shift, shift_amount);
+        let (operand_2, carry_out) =
+            self.apply_shift(self.cpu_state.get_register(rm), shift, shift_amount);
         let result = operand_1 & operand_2;
         self.cpu_state.set_register(rd, result);
         if set_flags {
             self.update_logical_flags(result, carry_out);
         }
     }
-
+    #[inline(always)]
     pub fn orr_immediate(&mut self, rd: usize, rn: usize, imm12: u32, set_flags: bool) {
         let operand_1 = self.cpu_state.get_register(rn);
         let result = operand_1 | imm12;
@@ -72,27 +101,101 @@ impl Cpu {
             self.update_logical_flags(result, false); //Carry flag unchanged
         }
     }
-
-    pub fn orr_register(&mut self, rd: usize, rn: usize, rm: usize, shift: ShiftType, shift_amount: u8, set_flags: bool) {
+    #[inline(always)]
+    pub fn orr_register(
+        &mut self,
+        rd: usize,
+        rn: usize,
+        rm: usize,
+        shift: ShiftType,
+        shift_amount: u8,
+        set_flags: bool,
+    ) {
         let operand_1 = self.cpu_state.get_register(rn);
-        let (operand_2, carry_out) = self.apply_shift(self.cpu_state.get_register(rm), shift, shift_amount);
+        let (operand_2, carry_out) =
+            self.apply_shift(self.cpu_state.get_register(rm), shift, shift_amount);
         let result = operand_1 | operand_2;
         self.cpu_state.set_register(rd, result);
         if set_flags {
             self.update_logical_flags(result, carry_out);
         }
     }
-        pub fn mov_immediete(&mut self, rd: usize, imm12: u32) {
-            let rotated_imm = imm12; // Placeholder.  Implement rotation!
-            self.cpu_state.set_register(rd, rotated_imm);
-            self.update_logical_flags(rotated_imm, false);
+    #[inline(always)]
+    pub fn mov_immediete(&mut self, rd: usize, imm12: u32) {
+        let rotated_imm = imm12; // Placeholder.  Implement rotation!
+        self.cpu_state.set_register(rd, rotated_imm);
+        self.update_logical_flags(rotated_imm, false);
     }
-        pub fn mov_register(&mut self, rd: usize, rm: usize, shift: ShiftType, shift_amount: u8, set_flags: bool) {
-            let (result, carry) = self.apply_shift(self.cpu_state.get_register(rm), shift, shift_amount);
-            self.cpu_state.set_register(rd, result);
-            if set_flags{
-                self.update_logical_flags(result, carry);
-            }
+    #[inline(always)]
+    pub fn mov_register(
+        &mut self,
+        rd: usize,
+        rm: usize,
+        shift: ShiftType,
+        shift_amount: u8,
+        set_flags: bool,
+    ) {
+        let (result, carry) =
+            self.apply_shift(self.cpu_state.get_register(rm), shift, shift_amount);
+        self.cpu_state.set_register(rd, result);
+        if set_flags {
+            self.update_logical_flags(result, carry);
+        }
+    }
+    #[inline(always)]
+    pub fn adc_immediate(&mut self, rd: usize, rn: usize, imm12: u32, set_flags: bool) {
+        let operand_1 = self.cpu_state.get_register(rn);
+        let operand_2 = imm12;
+        let carry_in = if self.cpu_state.CPSR.is_carry() { 1 } else { 0 };
+        let (intermediate_result, overflow_1) = operand_1.overflowing_add(operand_2);
+        let (result, overflow_2) = intermediate_result.overflowing_add(carry_in);
+        let carry_out = overflow_1 | overflow_2;
 
+        // Determine the overflow flag (for signed arithmetic)
+        // Get the sign bits by right-shifting by 31 and masking with 1
+        let operand_1_sign_bit = (operand_1 as i32) >> 31 & 1;
+        let operand_2_sign_bit = (operand_2 as i32) >> 31 & 1;
+        let result_sign_bit = (result as i32) >> 31 & 1;
+
+        let overflow =
+            (operand_1_sign_bit == operand_2_sign_bit) && (operand_1_sign_bit != result_sign_bit);
+
+        self.cpu_state.set_register(rd, result);
+        if set_flags {
+            self.update_arithmetic_flags(result, carry_out, overflow);
+        }
+    }
+    #[inline(always)]
+    pub fn adc_register(
+        &mut self,
+        rd: usize,
+        rm: usize,
+        rn: usize,
+        shift: ShiftType,
+        shift_amount: u8,
+        set_flags: bool,
+    ) {
+        let operand_1 = self.cpu_state.get_register(rn);
+        let operand_2 = self.cpu_state.get_register(rm);
+        let carry_in = if self.cpu_state.CPSR.is_carry() { 1 } else { 0 };
+
+        let (shifted_operand_2, shift_carry_out) = self.apply_shift(operand_2, shift, shift_amount);
+
+        let (intermediate_result, overflow_1) = operand_1.overflowing_add(shifted_operand_2);
+        let (result, overflow_2) = intermediate_result.overflowing_add(carry_in as u32);
+        let carry_out = overflow_1 | overflow_2;
+
+        // Determine the overflow flag (for signed arithmetic)
+        let operand_1_sign_bit = (operand_1 as i32) >> 31 & 1;
+        let shifted_operand_2_sign_bit = (shifted_operand_2 as i32) >> 31 & 1;
+        let result_sign_bit = (result as i32) >> 31 & 1;
+        let overflow = (operand_1_sign_bit == shifted_operand_2_sign_bit)
+            && (operand_1_sign_bit != result_sign_bit);
+
+        self.cpu_state.set_register(rd, result);
+
+        if set_flags {
+            self.update_arithmetic_flags(result, carry_out, overflow);
+        }
     }
 }
