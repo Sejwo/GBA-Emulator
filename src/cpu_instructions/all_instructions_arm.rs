@@ -198,4 +198,57 @@ impl Cpu {
             self.update_arithmetic_flags(result, carry_out, overflow);
         }
     }
+    pub fn sbc_immediate(&mut self, rd: usize, rn: usize, imm12: u32, set_flags: bool) {
+        let operand_1 = self.cpu_state.get_register(rn);
+        let operand_2 = imm12;
+        let carry_in = if self.cpu_state.CPSR.is_carry() { 1 } else { 0 };
+        let borrow = 1 - carry_in;
+        let (intermediate_result, borrow_1) = operand_1.overflowing_sub(operand_2);
+        let (result, borrow_2) = intermediate_result.overflowing_sub(borrow as u32);
+        let carry_out = !(borrow_1 | borrow_2);
+
+        let operand_1_sign_bit = (operand_1 as i32) >> 31 & 1;
+        let operand_2_sign_bit = (operand_2 as i32) >> 31 & 1;
+        let result_sign_bit = (result as i32) >> 31 & 1;
+
+        let overflow =
+            (operand_1_sign_bit == operand_2_sign_bit) && (operand_1_sign_bit != result_sign_bit);
+        self.cpu_state.set_register(rd, result);
+        if set_flags {
+            self.update_arithmetic_flags(result, carry_out, overflow);
+        }
+    }
+    pub fn sbc_register(
+        &mut self,
+        rd: usize,
+        rm: usize,
+        rn: usize,
+        shift: ShiftType,
+        shift_amount: u8,
+        set_flags: bool,
+    ) {
+        let operand_1 = self.cpu_state.get_register(rn);
+        let operand_2 = self.cpu_state.get_register(rm);
+        let carry_in = if self.cpu_state.CPSR.is_carry() { 1 } else { 0 };
+        let borrow = 1 - carry_in;
+
+        let (shifted_operand_2, _) = self.apply_shift(operand_2, shift, shift_amount);
+
+        let (intermediate_result, borrow1) = operand_1.overflowing_sub(shifted_operand_2);
+        let (result, borrow2) = intermediate_result.overflowing_sub(borrow as u32);
+
+        let carry_out = !(borrow1 | borrow2);
+
+        // Signed overflow detection
+        let operand_1_sign_bit = (operand_1 as i32) >> 31 & 1;
+        let operand_2_sign_bit = (operand_2 as i32) >> 31 & 1;
+        let result_sign_bit = (result as i32) >> 31 & 1;
+
+        let overflow =
+            (operand_1_sign_bit == operand_2_sign_bit) && (operand_1_sign_bit != result_sign_bit);
+        self.cpu_state.set_register(rd, result);
+        if set_flags {
+            self.update_arithmetic_flags(result, carry_out, overflow);
+        }
+    }
 }

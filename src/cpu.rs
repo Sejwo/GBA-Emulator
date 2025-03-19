@@ -424,6 +424,25 @@ impl Cpu {
                 } => {
                     self.adc_register(rd, rn, rm, shift, shift_amount, set_flags);
                 }
+
+                Instruction::SbcImmediate {
+                    rd,
+                    rn,
+                    imm12,
+                    set_flags,
+                } => {
+                    self.sbc_immediate(rd, rn, imm12, set_flags);
+                }
+                Instruction::SbcRegister {
+                    rd,
+                    rn,
+                    rm,
+                    shift,
+                    shift_amount,
+                    set_flags,
+                } => {
+                    self.sbc_register(rd, rn, rm, shift, shift_amount, set_flags);
+                }
                 Instruction::Unknown(instruction) => {
                     // Handle unknown instructions (e.g., raise an exception).
                     panic!("Unknown instruction: 0x{:X}", instruction);

@@ -80,21 +80,33 @@ pub enum Instruction {
         shift_amount: u8,
         set_flags: bool,
     },
-    AdcImmediate{
+    AdcImmediate {
         rd: usize,
         rn: usize,
         imm12: u32,
         set_flags: bool,
-                
     },
-    AdcRegister{
-        rd:usize,
+    AdcRegister {
+        rd: usize,
         rn: usize,
-        rm:usize,
-        shift:ShiftType,
-        shift_amount:u8,
-        set_flags:bool,
-                
+        rm: usize,
+        shift: ShiftType,
+        shift_amount: u8,
+        set_flags: bool,
+    },
+    SbcImmediate {
+        rd: usize,
+        rn: usize,
+        imm12: u32,
+        set_flags: bool,
+    },
+    SbcRegister {
+        rd: usize,
+        rn: usize,
+        rm: usize,
+        shift: ShiftType,
+        shift_amount: u8,
+        set_flags: bool,
     },
     Unknown(u32),
     Nop,
@@ -115,25 +127,60 @@ pub fn decode_arm(instruction: u32) -> Instruction {
     }
 
     // Extract common fields.
-    let opcode    = (instruction >> 21) & 0xF;
+    let opcode = (instruction >> 21) & 0xF;
     // For immediate instructions we force set_flags true (per tests).
     let s_extracted = ((instruction >> 20) & 1) == 1;
-    let rn        = ((instruction >> 16) & 0xF) as usize;
-    let rd        = ((instruction >> 12) & 0xF) as usize;
-    let i_bit     = (instruction >> 25) & 1;
+    let rn = ((instruction >> 16) & 0xF) as usize;
+    let rd = ((instruction >> 12) & 0xF) as usize;
+    let i_bit = (instruction >> 25) & 1;
 
     // Immediate data processing instructions.
     if i_bit == 1 {
         let imm12 = decode_rotated_immediate(instruction);
         let set_flags = true; // Force true for immediate instructions per tests.
         return match opcode {
-            0b0000 => Instruction::AndImmediate { rd, rn, imm12, set_flags },
-            0b0010 => Instruction::SubImmediate { rd, rn, imm12, set_flags },
-            0b0100 => Instruction::AddImmediate { rd, rn, imm12, set_flags },
-            0b0101 => Instruction::AdcImmediate { rd, rn, imm12, set_flags },
-            0b1100 => Instruction::OrrImmediate { rd, rn, imm12, set_flags },
-            0b1101 => Instruction::MovImmediate { rd, imm12, set_flags },
-            _      => Instruction::Unknown(instruction),
+            0b0000 => Instruction::AndImmediate {
+                rd,
+                rn,
+                imm12,
+                set_flags,
+            },
+            0b0010 => Instruction::SubImmediate {
+                rd,
+                rn,
+                imm12,
+                set_flags,
+            },
+            0b0110 => Instruction::SbcImmediate {
+                rd,
+                rn,
+                imm12,
+                set_flags,
+            },
+            0b0100 => Instruction::AddImmediate {
+                rd,
+                rn,
+                imm12,
+                set_flags,
+            },
+            0b0101 => Instruction::AdcImmediate {
+                rd,
+                rn,
+                imm12,
+                set_flags,
+            },
+            0b1100 => Instruction::OrrImmediate {
+                rd,
+                rn,
+                imm12,
+                set_flags,
+            },
+            0b1101 => Instruction::MovImmediate {
+                rd,
+                imm12,
+                set_flags,
+            },
+            _ => Instruction::Unknown(instruction),
         };
     }
 
@@ -146,25 +193,73 @@ pub fn decode_arm(instruction: u32) -> Instruction {
             0b01 => ShiftType::LSR,
             0b10 => ShiftType::ASR,
             0b11 => ShiftType::ROR,
-            _    => unreachable!(),
+            _ => unreachable!(),
         };
         let rm = (instruction & 0xF) as usize;
         // For register instructions, use the extracted S bit.
         let set_flags = s_extracted;
         return match opcode {
-            0b0000 => Instruction::AndRegister { rd, rn, rm, shift: shift_type, shift_amount, set_flags },
-            0b0010 => Instruction::SubRegister { rd, rn, rm, shift: shift_type, shift_amount, set_flags },
-            0b0100 => Instruction::AddRegister { rd, rn, rm, shift: shift_type, shift_amount, set_flags },
-            0b0101 => Instruction::AdcRegister { rd, rn, rm, shift: shift_type, shift_amount, set_flags },
-            0b1100 => Instruction::OrrRegister { rd, rn, rm, shift: shift_type, shift_amount, set_flags },
-            0b1101 => Instruction::MovRegister { rd, rm, shift: shift_type, shift_amount, set_flags },
-            _      => Instruction::Unknown(instruction),
+            0b0000 => Instruction::AndRegister {
+                rd,
+                rn,
+                rm,
+                shift: shift_type,
+                shift_amount,
+                set_flags,
+            },
+            0b0010 => Instruction::SubRegister {
+                rd,
+                rn,
+                rm,
+                shift: shift_type,
+                shift_amount,
+                set_flags,
+            },
+            0b0110 => Instruction::SbcRegister {
+                rd,
+                rn,
+                rm,
+                shift: shift_type,
+                shift_amount,
+                set_flags,
+            },
+            0b0100 => Instruction::AddRegister {
+                rd,
+                rn,
+                rm,
+                shift: shift_type,
+                shift_amount,
+                set_flags,
+            },
+            0b0101 => Instruction::AdcRegister {
+                rd,
+                rn,
+                rm,
+                shift: shift_type,
+                shift_amount,
+                set_flags,
+            },
+            0b1100 => Instruction::OrrRegister {
+                rd,
+                rn,
+                rm,
+                shift: shift_type,
+                shift_amount,
+                set_flags,
+            },
+            0b1101 => Instruction::MovRegister {
+                rd,
+                rm,
+                shift: shift_type,
+                shift_amount,
+                set_flags,
+            },
+            _ => Instruction::Unknown(instruction),
         };
     }
 
     Instruction::Unknown(instruction)
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -178,7 +273,12 @@ mod tests {
         let decoded = decode_arm(instruction);
         assert_eq!(
             decoded,
-            Instruction::AddImmediate { rd: 0, rn: 1, imm12: 10, set_flags: true }
+            Instruction::AddImmediate {
+                rd: 0,
+                rn: 1,
+                imm12: 10,
+                set_flags: true
+            }
         );
     }
 
@@ -191,7 +291,14 @@ mod tests {
         let decoded = decode_arm(instruction);
         assert_eq!(
             decoded,
-            Instruction::AddRegister { rd: 0, rn: 1, rm: 2, shift: ShiftType::LSL, shift_amount: 4, set_flags: false }
+            Instruction::AddRegister {
+                rd: 0,
+                rn: 1,
+                rm: 2,
+                shift: ShiftType::LSL,
+                shift_amount: 4,
+                set_flags: false
+            }
         );
     }
 
@@ -202,7 +309,14 @@ mod tests {
         let decoded = decode_arm(instruction);
         assert_eq!(
             decoded,
-            Instruction::AddRegister { rd: 0, rn: 1, rm: 2, shift: ShiftType::LSL, shift_amount: 4, set_flags: true }
+            Instruction::AddRegister {
+                rd: 0,
+                rn: 1,
+                rm: 2,
+                shift: ShiftType::LSL,
+                shift_amount: 4,
+                set_flags: true
+            }
         );
     }
 
@@ -213,7 +327,14 @@ mod tests {
         let decoded = decode_arm(instruction);
         assert_eq!(
             decoded,
-            Instruction::AddRegister { rd: 3, rn: 4, rm: 5, shift: ShiftType::LSR, shift_amount: 8, set_flags: false }
+            Instruction::AddRegister {
+                rd: 3,
+                rn: 4,
+                rm: 5,
+                shift: ShiftType::LSR,
+                shift_amount: 8,
+                set_flags: false
+            }
         );
     }
 
@@ -224,7 +345,14 @@ mod tests {
         let decoded = decode_arm(instruction);
         assert_eq!(
             decoded,
-            Instruction::AddRegister { rd: 6, rn: 7, rm: 8, shift: ShiftType::ASR, shift_amount: 12, set_flags: true }
+            Instruction::AddRegister {
+                rd: 6,
+                rn: 7,
+                rm: 8,
+                shift: ShiftType::ASR,
+                shift_amount: 12,
+                set_flags: true
+            }
         );
     }
 
@@ -235,7 +363,14 @@ mod tests {
         let decoded = decode_arm(instruction);
         assert_eq!(
             decoded,
-            Instruction::AddRegister { rd: 9, rn: 10, rm: 11, shift: ShiftType::ROR, shift_amount: 3, set_flags: false }
+            Instruction::AddRegister {
+                rd: 9,
+                rn: 10,
+                rm: 11,
+                shift: ShiftType::ROR,
+                shift_amount: 3,
+                set_flags: false
+            }
         );
     }
 
@@ -246,7 +381,11 @@ mod tests {
         let decoded = decode_arm(instruction);
         assert_eq!(
             decoded,
-            Instruction::MovImmediate { rd: 0, imm12: 0x55, set_flags: true }
+            Instruction::MovImmediate {
+                rd: 0,
+                imm12: 0x55,
+                set_flags: true
+            }
         );
     }
 
@@ -257,7 +396,13 @@ mod tests {
         let decoded = decode_arm(instruction);
         assert_eq!(
             decoded,
-            Instruction::MovRegister { rd: 1, rm: 2, shift: ShiftType::LSL, shift_amount: 3, set_flags: false }
+            Instruction::MovRegister {
+                rd: 1,
+                rm: 2,
+                shift: ShiftType::LSL,
+                shift_amount: 3,
+                set_flags: false
+            }
         );
     }
 
@@ -268,7 +413,14 @@ mod tests {
         let decoded = decode_arm(instruction);
         assert_eq!(
             decoded,
-            Instruction::SubRegister { rd: 0, rn: 1, rm: 2, shift: ShiftType::LSL, shift_amount: 0, set_flags: false }
+            Instruction::SubRegister {
+                rd: 0,
+                rn: 1,
+                rm: 2,
+                shift: ShiftType::LSL,
+                shift_amount: 0,
+                set_flags: false
+            }
         );
     }
 
@@ -279,7 +431,12 @@ mod tests {
         let decoded = decode_arm(instruction);
         assert_eq!(
             decoded,
-            Instruction::SubImmediate { rd: 0, rn: 1, imm12: 10, set_flags: true }
+            Instruction::SubImmediate {
+                rd: 0,
+                rn: 1,
+                imm12: 10,
+                set_flags: true
+            }
         );
     }
 
@@ -290,7 +447,12 @@ mod tests {
         let decoded = decode_arm(instruction);
         assert_eq!(
             decoded,
-            Instruction::AndImmediate { rd: 0, rn: 1, imm12: 10, set_flags: true }
+            Instruction::AndImmediate {
+                rd: 0,
+                rn: 1,
+                imm12: 10,
+                set_flags: true
+            }
         );
     }
 
@@ -301,7 +463,14 @@ mod tests {
         let decoded = decode_arm(instruction);
         assert_eq!(
             decoded,
-            Instruction::AndRegister { rd: 0, rn: 1, rm: 2, shift: ShiftType::LSL, shift_amount: 0, set_flags: false }
+            Instruction::AndRegister {
+                rd: 0,
+                rn: 1,
+                rm: 2,
+                shift: ShiftType::LSL,
+                shift_amount: 0,
+                set_flags: false
+            }
         );
     }
 
@@ -312,7 +481,12 @@ mod tests {
         let decoded = decode_arm(instruction);
         assert_eq!(
             decoded,
-            Instruction::OrrImmediate { rd: 0, rn: 1, imm12: 10, set_flags: true }
+            Instruction::OrrImmediate {
+                rd: 0,
+                rn: 1,
+                imm12: 10,
+                set_flags: true
+            }
         );
     }
 
@@ -323,17 +497,29 @@ mod tests {
         let decoded = decode_arm(instruction);
         assert_eq!(
             decoded,
-            Instruction::OrrRegister { rd: 0, rn: 1, rm: 2, shift: ShiftType::LSL, shift_amount: 0, set_flags: false }
+            Instruction::OrrRegister {
+                rd: 0,
+                rn: 1,
+                rm: 2,
+                shift: ShiftType::LSL,
+                shift_amount: 0,
+                set_flags: false
+            }
         );
     }
     #[test]
-    fn test_decode_adc_immediate(){
+    fn test_decode_adc_immediate() {
         //ADC R0,R1,#5
         let instruction: u32 = u32::from_le_bytes([0x05, 0x00, 0xA1, 0xE2]);
         let decoded = decode_arm(instruction);
         assert_eq!(
-            decoded, 
-            Instruction::AdcImmediate { rd: 0, rn: 1, imm12: 5, set_flags: true }
+            decoded,
+            Instruction::AdcImmediate {
+                rd: 0,
+                rn: 1,
+                imm12: 5,
+                set_flags: true
+            }
         )
     }
     #[test]
@@ -343,7 +529,47 @@ mod tests {
         let decoded = decode_arm(instruction);
         assert_eq!(
             decoded,
-            Instruction::AdcRegister { rd: 2, rn: 3, rm: 4, shift: ShiftType::LSL, shift_amount: 0, set_flags: false }
+            Instruction::AdcRegister {
+                rd: 2,
+                rn: 3,
+                rm: 4,
+                shift: ShiftType::LSL,
+                shift_amount: 0,
+                set_flags: false
+            }
+        );
+    }
+
+    #[test]
+    fn test_decode_sbc_immediate() {
+        //SBC r0, r1, #10
+        let instruction: u32 = u32::from_le_bytes([0x0A, 0x00, 0xC1, 0xE2]);
+        let decoded = decode_arm(instruction);
+        assert_eq!(
+            decoded,
+            Instruction::SbcImmediate {
+                rd: 0,
+                rn: 1,
+                imm12: 10,
+                set_flags: true
+            }
+        );
+    }
+    #[test]
+    fn test_decode_sbc_register() {
+        // SBC r0, r1, r2, LSL #0
+        let instruction = u32::from_le_bytes([0x02, 0x00, 0xC1, 0xE0]);
+        let decoded = decode_arm(instruction);
+        assert_eq!(
+            decoded,
+            Instruction::SbcRegister {
+                rd: 0,
+                rn: 1,
+                rm: 2,
+                shift: ShiftType::LSL,
+                shift_amount: 0,
+                set_flags: false
+            }
         );
     }
 
