@@ -1,35 +1,38 @@
+use crate::cpu_instructions::instruction_decoding::{decode_arm, Instruction, ShiftType};
 use crate::memory::Memory;
-use crate::cpu_instructions::instruction_decoding::{Instruction, decode_instruction};
 
 #[allow(dead_code)]
 #[allow(non_snake_case)]
 #[derive(Debug, Default, Copy, Clone)]
 pub struct CpuState {
-    pub regular_registers: [u32; 16], //regular registers
-    pub PC: u32,                      //Program Counter
-    pub SP: u32,                      //Stack Pointer
-    pub CPSR: Cpsr, //Current Program Status Register uses custom struct for clearer flag management
+    pub regular_registers: [u32; 16], // Regular registers (r0-r15)
+    pub PC: u32,                    // Program Counter
+    pub SP: u32,                    // Stack Pointer
+    pub CPSR: Cpsr,                 // Current Program Status Register
+    pub SPSR: Cpsr,                 // Saved Program Status Register
 }
-
+#[allow(dead_code)]
 impl CpuState {
     pub fn get_register(&self, reg_num: usize) -> u32 {
         if reg_num < 16 {
-            self.regular_registers[reg_num] as u32
+            self.regular_registers[reg_num]
         } else {
             panic!("Invalid register number requested: {}", reg_num);
         }
     }
-    pub fn set_register(&mut self, reg_num: usize, value: u32) -> () {
+
+    pub fn set_register(&mut self, reg_num: usize, value: u32) {
         if reg_num < 16 {
             self.regular_registers[reg_num] = value;
         } else {
             panic!("Invalid register number: {}", reg_num)
         }
     }
-    pub fn fetch_instruction(&mut self, memory: &Memory) -> u32 {
+
+    pub fn fetch_instruction(&mut self, memory: &Memory) -> (u32, bool) {
         let instruction = memory.read_word(self.PC);
         self.PC += 4;
-        instruction
+        (instruction, self.CPSR.is_thumb_state())  // Return instruction and T-bit
     }
 }
 
@@ -58,7 +61,7 @@ impl Cpsr {
     }
 
     #[inline(always)]
-
+    #[allow(dead_code)]
     pub fn set_negative(&mut self, set: bool) {
         if set {
             self.value |= 1 << Self::NEGATIVE_BIT;
@@ -76,6 +79,7 @@ impl Cpsr {
     }
 
     #[inline(always)]
+    #[allow(dead_code)]
     pub fn set_zero(&mut self, set: bool) {
         if set {
             self.value |= 1 << Self::ZERO_BIT;
@@ -93,6 +97,7 @@ impl Cpsr {
     }
 
     #[inline(always)]
+    #[allow(dead_code)]
     pub fn set_carry(&mut self, set: bool) {
         if set {
             self.value |= 1 << Self::CARRY_BIT;
@@ -156,11 +161,13 @@ impl Cpsr {
 
     #[inline(always)]
     #[allow(unused_parens)]
+    #[allow(dead_code)]
     pub fn is_thumb_state(&self) -> bool {
         (self.value >> Self::T_BIT & 1 == 1)
     }
 
     #[inline(always)]
+    #[allow(dead_code)]
     pub fn set_thumb_state(&mut self, set: bool) {
         if set {
             self.value |= 1 << Self::T_BIT;
@@ -169,6 +176,7 @@ impl Cpsr {
         }
     }
     #[inline(always)]
+    #[allow(dead_code)]
     pub fn display_all_flags(&self) -> () {
         println!("Is negative: {}\nIs zero: {}\nIs carry: {}\nIs overflow: {} \nIs IRQ disabled: {} \nIs FIQ disabled: {} \nIs Thumb state: {} ",
                 self.is_negative(),
@@ -182,9 +190,10 @@ impl Cpsr {
     }
 }
 
-pub struct Cpu{
+pub struct Cpu {
     pub cpu_state: CpuState,
 }
+
 impl Cpu {
     pub fn new() -> Self {
         Cpu {
@@ -192,67 +201,293 @@ impl Cpu {
         }
     }
 
-    pub fn interpret_instruction(&mut self, instruction: u32) {
-        let decoded = decode_instruction(instruction);
-        match decoded {
-            Instruction::MovImmediate { rd, imm16 } => {
-                self.mov_immediete(rd, imm16);
+    // Helper function to update flags after arithmetic operations.
+    pub fn update_arithmetic_flags(&mut self, result: u32, carry: bool, overflow: bool) {
+        self.cpu_state.CPSR.set_zero(result == 0);
+        self.cpu_state.CPSR.set_negative((result as i32) < 0);
+        self.cpu_state.CPSR.set_carry(carry);
+        self.cpu_state.CPSR.set_overflow(overflow);
+    }
+
+    // Helper function to update flags after logical operations.
+    pub fn update_logical_flags(&mut self, result: u32, carry: bool) {
+        self.cpu_state.CPSR.set_zero(result == 0);
+        self.cpu_state.CPSR.set_negative((result as i32) < 0);
+        self.cpu_state.CPSR.set_carry(carry);
+        // Overflow is not affected by logical operations.
+    }
+
+    // Placeholder for applying shifts (we'll implement this later).
+    pub fn apply_shift(&self, value: u32, shift_type: ShiftType, shift_amount: u8) -> (u32, bool) {
+        match shift_type {
+            ShiftType::LSL => {
+                if shift_amount == 0 {
+                    (value, self.cpu_state.CPSR.is_carry()) // Special case for LSL #0
+                } else if shift_amount < 32 {
+                    let carry_out = (value >> (32 - shift_amount)) & 1 == 1;
+                    (value << shift_amount, carry_out)
+                } else if shift_amount == 32 {
+                    (0, (value & 1) == 1)
+                } else {
+                    (0, false)
+                }
             }
-            Instruction::MovRegister { rd, rm } => {
-                self.mov_register(rd, rm);
+            ShiftType::LSR => {
+                if shift_amount == 0 {
+                    (value, self.cpu_state.CPSR.is_carry()) // Special case for LSR #0 is LSR #32
+                } else if shift_amount < 32 {
+                    let carry_out = (value >> (shift_amount - 1)) & 1 == 1;
+                    (value >> shift_amount, carry_out)
+                } else if shift_amount == 32 {
+                    (0, (value >> 31) == 1)
+                } else {
+                    (0, false)
+                }
             }
-            Instruction::AddImmediate { rd, rn, imm12 } => {
-                self.add_immediate(rd, rn, imm12);
+            ShiftType::ASR => {
+                if shift_amount == 0 {
+                    (value, self.cpu_state.CPSR.is_carry()) // Special case for ASR #0 is ASR #32
+                } else if shift_amount < 32 {
+                    let carry_out = (value >> (shift_amount - 1)) & 1 == 1;
+                    let result = (value as i32 >> shift_amount) as u32; // Arithmetic shift
+                    (result, carry_out)
+                } else {
+                    //ASR #32 or more
+                    let result = if (value as i32) < 0 {
+                        !0u32 //All bits 1
+                    } else {
+                        0u32 // All bits 0
+                    };
+                    (result, (value as i32) < 0)
+                }
             }
-            Instruction::AddRegister { rd, rn, rm } => {
-                self.add_register(rd, rn, rm);
-            }
-            Instruction::SubImmediate { rd, rn, imm12 } => {
-                self.sub_immediate(rd, rn, imm12);
-            }
-            Instruction::SubRegister { rd, rn, rm } => {
-                self.sub_register(rd, rn, rm);
-            }
-            Instruction::AndImmediate { rd, rn, imm12 } => {
-                self.and_immediate(rd, rn, imm12);
-            }
-            Instruction::AndRegister { rd, rn, rm } => {
-                self.and_register(rd, rn, rm);
-            }
-            Instruction::OrrImmediate { rd, rn, imm12 } => {
-                self.orr_immediate(rd, rn, imm12);
-            }
-            Instruction::OrrRegister { rd, rn, rm } => {
-                self.orr_register(rd, rn, rm);
-            }
-            Instruction::Unknown(u32) => {
-                todo!("Add instruction for 0x{:X}", u32)
+            ShiftType::ROR => {
+                let shift_amount = shift_amount % 32;
+                if shift_amount == 0 {
+                    (value, self.cpu_state.CPSR.is_carry()) // Special case for ROR #0 is RRX
+                } else {
+                    let carry_out = (value >> (shift_amount - 1)) & 1 == 1;
+                    let result = value.rotate_right(shift_amount as u32);
+                    (result, carry_out)
+                }
             }
         }
     }
-    pub fn run_program(&mut self, memory: &Memory) {
-        const HALT_INSTRUCTION: u32 = 0xFFFFFFFF;
-        loop {
-            // Fetch the next instruction using the PC in CpuState.
-            let instruction = self.cpu_state.fetch_instruction(memory);
-            if instruction == HALT_INSTRUCTION{
-                for (i, register) in self.cpu_state.regular_registers.iter().enumerate(){
-                    println!("R{}: 0x{:X} \n", i, register);
+    // Placeholder for interpreting a single instruction.
+    fn interpret_instruction(&mut self, instruction: u32) {
+        // Perform the condition check *here*
+        let condition_passed = match decode_arm(instruction) {
+            Instruction::Nop => true, // NOP always passes
+            _ => {
+                let condition_code = (instruction >> 28) & 0xF;
+                match condition_code {
+                    0b0000 => self.cpu_state.CPSR.is_zero(),
+                    0b0001 => !self.cpu_state.CPSR.is_zero(),
+                    0b0010 => self.cpu_state.CPSR.is_carry(),
+                    0b0011 => !self.cpu_state.CPSR.is_carry(),
+                    0b0100 => self.cpu_state.CPSR.is_negative(),
+                    0b0101 => !self.cpu_state.CPSR.is_negative(),
+                    0b0110 => self.cpu_state.CPSR.is_overflow(),
+                    0b0111 => !self.cpu_state.CPSR.is_overflow(),
+                    0b1000 => self.cpu_state.CPSR.is_carry() && !self.cpu_state.CPSR.is_zero(),
+                    0b1001 => !self.cpu_state.CPSR.is_carry() || self.cpu_state.CPSR.is_zero(),
+                    0b1010 => {
+                        self.cpu_state.CPSR.is_negative() == self.cpu_state.CPSR.is_overflow()
+                    }
+                    0b1011 => {
+                        self.cpu_state.CPSR.is_negative() != self.cpu_state.CPSR.is_overflow()
+                    }
+                    0b1100 => {
+                        !self.cpu_state.CPSR.is_zero()
+                            && (self.cpu_state.CPSR.is_negative()
+                                == self.cpu_state.CPSR.is_overflow())
+                    }
+                    0b1101 => {
+                        self.cpu_state.CPSR.is_zero()
+                            || (self.cpu_state.CPSR.is_negative()
+                                != self.cpu_state.CPSR.is_overflow())
+                    }
+                    0b1110 => true,      // AL (Always)
+                    0b1111 => false,     // NV (Never)
+                    _ => unreachable!(), // Invalid condition code.
                 }
-                println!("End of program");
+            }
+        };
+        if condition_passed {
+            //If condition is met
+            let decoded = decode_arm(instruction);
+            match decoded {
+                Instruction::MovImmediate { rd, imm12, set_flags } => {
+                    self.cpu_state.set_register(rd, imm12);
+                    self.update_logical_flags(imm12, false);
+                }
+                Instruction::MovRegister {
+                    rd,
+                    rm,
+                    shift,
+                    shift_amount,
+                    set_flags,
+                } => {
+                    let (result, carry) =
+                        self.apply_shift(self.cpu_state.get_register(rm), shift, shift_amount);
+                    self.cpu_state.set_register(rd, result);
+                    if set_flags {
+                        self.update_logical_flags(result, carry);
+                    }
+                }
+                Instruction::AddImmediate {
+                    rd,
+                    rn,
+                    imm12,
+                    set_flags,
+                } => {
+                    let operand_1 = self.cpu_state.get_register(rn);
+                    let operand_2 = imm12;
+                    let (result, overflow) = operand_1.overflowing_add(operand_2);
+                    let carry = result < operand_1; // Check for carry
+                    self.cpu_state.set_register(rd, result);
+                    if set_flags {
+                        self.update_arithmetic_flags(result, carry, overflow); // Use the helper
+                    }
+                }
+                Instruction::AddRegister {
+                    rd,
+                    rn,
+                    rm,
+                    shift,
+                    shift_amount,
+                    set_flags,
+                } => {
+                    let operand_1 = self.cpu_state.get_register(rn);
+                    let (operand_2, carry_out) =
+                        self.apply_shift(self.cpu_state.get_register(rm), shift, shift_amount);
+                    let (result, overflow) = operand_1.overflowing_add(operand_2);
+                    self.cpu_state.set_register(rd, result);
+                    if set_flags {
+                        self.update_arithmetic_flags(result, carry_out, overflow);
+                    }
+                }
+                Instruction::SubImmediate {
+                    rd,
+                    rn,
+                    imm12,
+                    set_flags,
+                } => {
+                    let operand_1 = self.cpu_state.get_register(rn);
+                    let operand_2 = imm12;
+                    let (result, overflow) = operand_1.overflowing_sub(operand_2);
+                    let carry = operand_1 >= operand_2; // Borrow = NOT Carry,  so Carry is set if NO borrow
+                    self.cpu_state.set_register(rd, result);
+                    if set_flags {
+                        self.update_arithmetic_flags(result, carry, overflow);
+                    }
+                }
+                Instruction::SubRegister {
+                    rd,
+                    rn,
+                    rm,
+                    shift,
+                    shift_amount,
+                    set_flags,
+                } => {
+                    let operand_1 = self.cpu_state.get_register(rn);
+                    let (operand_2, carry_out) =
+                        self.apply_shift(self.cpu_state.get_register(rm), shift, shift_amount);
+                    let (result, overflow) = operand_1.overflowing_sub(operand_2);
+                    let carry = operand_1 >= operand_2; // Borrow = NOT Carry
+                    self.cpu_state.set_register(rd, result);
+                    if set_flags {
+                        self.update_arithmetic_flags(result, carry, overflow);
+                    }
+                }
+                Instruction::AndImmediate {
+                    rd,
+                    rn,
+                    imm12,
+                    set_flags,
+                } => {
+                    let operand_1 = self.cpu_state.get_register(rn);
+                    let result = operand_1 & imm12;
+                    self.cpu_state.set_register(rd, result);
+                    if set_flags {
+                        self.update_logical_flags(result, false); //Carry out is unchanged by AND
+                    }
+                }
+
+                Instruction::AndRegister {
+                    rd,
+                    rn,
+                    rm,
+                    shift,
+                    shift_amount,
+                    set_flags,
+                } => {
+                    let operand_1 = self.cpu_state.get_register(rn);
+                    let (operand_2, carry_out) =
+                        self.apply_shift(self.cpu_state.get_register(rm), shift, shift_amount);
+                    let result = operand_1 & operand_2;
+                    self.cpu_state.set_register(rd, result);
+                    if set_flags {
+                        self.update_logical_flags(result, carry_out);
+                    }
+                }
+                Instruction::OrrImmediate {
+                    rd,
+                    rn,
+                    imm12,
+                    set_flags,
+                } => {
+                    let operand_1 = self.cpu_state.get_register(rn);
+                    let result = operand_1 | imm12;
+                    self.cpu_state.set_register(rd, result);
+                    if set_flags {
+                        self.update_logical_flags(result, false); //Carry out is unchanged
+                    }
+                }
+
+                Instruction::OrrRegister {
+                    rd,
+                    rn,
+                    rm,
+                    shift,
+                    shift_amount,
+                    set_flags,
+                } => {
+                    let operand_1 = self.cpu_state.get_register(rn);
+                    let (operand_2, carry_out) =
+                        self.apply_shift(self.cpu_state.get_register(rm), shift, shift_amount);
+                    let result = operand_1 | operand_2;
+                    self.cpu_state.set_register(rd, result);
+                    if set_flags {
+                        self.update_logical_flags(result, carry_out);
+                    }
+                }
+                Instruction::Unknown(instruction) => {
+                    // Handle unknown instructions (e.g., raise an exception).
+                    panic!("Unknown instruction: 0x{:X}", instruction);
+                }
+                Instruction::Nop => {} // Do nothing for NOP
+            }
+        }
+    }
+
+    pub fn run_program(&mut self, memory: &Memory) {
+        const HALT_INSTRUCTION: u32 = 0xFFFFFFFF; // Or another sentinel value.
+        loop {
+            let (instruction, is_thumb) = self.cpu_state.fetch_instruction(memory);
+            if is_thumb{
+                todo!("Implement Thumb mode")
+            }
+            if instruction == HALT_INSTRUCTION {
+                // Print registers and halt.
+                for (i, register) in self.cpu_state.regular_registers.iter().enumerate() {
+                    println!("R{}: 0x{:X}", i, register);
+                }
+                println!("End of program (halt instruction encountered).");
                 break;
             }
-            let decoded = decode_instruction(instruction);
-            match decoded {
-                Instruction::Unknown(val) => {
-                    println!("Encountered unknown instruction: 0x{:08X}. Halting execution.", val);
-                    break;
-                }
-                _ => {
-                    // Execute the instruction.
-                    self.interpret_instruction(instruction);
-                }
-            }
+            // Decode and execute the instruction.
+            self.interpret_instruction(instruction);
         }
     }
 }

@@ -2,6 +2,7 @@ pub struct Memory{
     data: Vec<u8>, //Byte array
 }
 impl Memory{
+    #[allow(dead_code)]
     pub fn new(size: usize) -> Self{
         Memory{
             data: vec![0;size], //initialising memory with size number of bytes
@@ -29,6 +30,7 @@ impl Memory{
             panic!("Memory word out of bounds at address 0x{:X}", address);
         }
     }
+    #[allow(dead_code)]
     pub fn write_bytes(&mut self, address: u32, bytes: &[u8]) {
         let end = address as usize + bytes.len();
         if end > self.data.len() {
