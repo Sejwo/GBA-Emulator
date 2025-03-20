@@ -1,4 +1,6 @@
 [package]
 name = "emulator"
 version = "0.1.0"
+authors = ["Michał Sawicki"]
 edition = "2021"
+description = "Pure Rust, minimal crate implementation of GBA Emulator"
