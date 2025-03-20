@@ -5,9 +5,7 @@ use crate::memory::Memory;
 #[allow(non_snake_case)]
 #[derive(Debug, Default, Copy, Clone)]
 pub struct CpuState {
-    pub regular_registers: [u32; 16], // Regular registers (r0-r15)
-    pub PC: u32,                      // Program Counter
-    pub SP: u32,                      // Stack Pointer
+    pub registers: [u32; 16], // Regular registers (r0-r15)
     pub CPSR: Cpsr,                   // Current Program Status Register
     pub SPSR: Cpsr,                   // Saved Program Status Register
 }
@@ -15,7 +13,7 @@ pub struct CpuState {
 impl CpuState {
     pub fn get_register(&self, reg_num: usize) -> u32 {
         if reg_num < 16 {
-            self.regular_registers[reg_num]
+            self.registers[reg_num]
         } else {
             panic!("Invalid register number requested: {}", reg_num);
         }
@@ -23,16 +21,17 @@ impl CpuState {
 
     pub fn set_register(&mut self, reg_num: usize, value: u32) {
         if reg_num < 16 {
-            self.regular_registers[reg_num] = value;
+            self.registers[reg_num] = value;
         } else {
             panic!("Invalid register number: {}", reg_num)
         }
     }
 
     pub fn fetch_instruction(&mut self, memory: &Memory) -> (u32, bool) {
-        let instruction = memory.read_word(self.PC);
-        self.PC += 4;
-        (instruction, self.CPSR.is_thumb_state()) // Return instruction and T-bit
+        let pc = self.get_register(15);
+        let instruction = memory.read_word(pc);
+        self.set_register(15, pc.wrapping_add(4)); // Increment PC by 4
+        (instruction, self.CPSR.is_thumb_state())
     }
 }
 
@@ -490,6 +489,51 @@ impl Cpu {
                 } => {
                     self.cmn_register(rn, rm, shift, shift_amount);
                 }
+                Instruction::CmpImmediate { rn, imm12 } => {
+                    self.cmp_immediate(rn, imm12);
+                }
+                Instruction::CmpRegister {
+                    rn,
+                    rm,
+                    shift,
+                    shift_amount,
+                } => {
+                    self.cmp_register(rn, rm, shift, shift_amount);
+                }
+                Instruction::MvnImmediate {
+                    rd,
+                    imm12,
+                    set_flags,
+                } => {
+                    self.mvn_immediate(rd, imm12, set_flags);
+                }
+                Instruction::MvnRegister {
+                    rd,
+                    rm,
+                    shift,
+                    shift_amount,
+                    set_flags,
+                } => {
+                    self.mvn_register(rd, rm, shift, shift_amount, set_flags);
+                }
+                Instruction::RsbImmediate {
+                    rd,
+                    rn,
+                    imm12,
+                    set_flags,
+                } => {
+                    self.rsb_immediate(rd, rn, imm12, set_flags);
+                }
+                Instruction::RsbRegister {
+                    rd,
+                    rn,
+                    rm,
+                    shift,
+                    shift_amount,
+                    set_flags,
+                } => {
+                    self.rsb_register(rd, rn, rm, shift, shift_amount, set_flags);
+                }
                 Instruction::Unknown(instruction) => {
                     // Handle unknown instructions (e.g., raise an exception).
                     panic!("Unknown instruction: 0x{:X}", instruction);
@@ -508,7 +552,7 @@ impl Cpu {
             }
             if instruction == HALT_INSTRUCTION {
                 // Print registers and halt.
-                for (i, register) in self.cpu_state.regular_registers.iter().enumerate() {
+                for (i, register) in self.cpu_state.registers.iter().enumerate() {
                     println!("R{}: 0x{:X}", i, register);
                 }
                 println!("End of program (halt instruction encountered).");

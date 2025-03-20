@@ -2,3 +2,4 @@ src//cpu_instructions//instruction_decoding.rs::Instructions // add instruction 
 src//cpu_instructions//all_instructions_arm.rs::Cpu // add the function to the impl block(probably terrible solution because all need to be public, but for clarity and to not pass Cpu as an argument that was nescessary)
 src//cpu.rs::Cpu.interpret_instruction() // add the function from the impl block to the match case, again, slightly slower than it could be but nescessary for clarity as instructions grow larger
 src//cpu_instructions//instruction_decoding.rs::decode_arm // finally add the opcode or other match code that is needed to assign this instruction
+tests//decode_tests.rs //add test to check added instruction work

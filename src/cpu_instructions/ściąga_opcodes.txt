@@ -1,85 +1,84 @@
-Group 1: Data Processing Instructions
+ Data Processing Instructions
 
-    ̶O̶R̶R̶ ̶(̶L̶o̶g̶i̶c̶a̶l̶ ̶O̶R̶)̶ - orr_immediate, orr_register: Performs a bitwise OR operation.
-    ̶A̶D̶C̶ ̶(̶A̶d̶d̶ ̶w̶i̶t̶h̶ ̶C̶a̶r̶r̶y̶)̶ - adc_immediate, adc_register: Adds with carry.
-    ̶A̶D̶D̶ ̶(̶A̶d̶d̶)̶ - add_immediate, add_register: Adds two operands.
-    ̶A̶N̶D̶ ̶(̶L̶o̶g̶i̶c̶a̶l̶ ̶A̶N̶D̶)̶ - and_immediate, and_register: Performs a bitwise AND operation.
-    B̶I̶C̶ ̶(̶B̶i̶t̶ ̶C̶l̶e̶a̶r̶)̶ ̶- bic_immediate, bic_register: Clears bits in a register based on another operand.
-    CMN (Compare Negative) - cmn_immediate, cmn_register: Compares a register with the negative of another operand (affects flags).
-    CMP (Compare) - cmp_immediate, cmp_register: Compares a register with another operand (affects flags).
-    ̶E̶O̶R̶ ̶(̶E̶x̶c̶l̶u̶s̶i̶v̶e̶ ̶O̶R̶)̶ - eor_immediate, eor_register: Performs a bitwise XOR operation.
-    ̶M̶O̶V̶ ̶(̶M̶o̶v̶e̶)̶ - mov_immediate, mov_register: Moves a value into a register.
-    MVN (Move Negative) - mvn_immediate, mvn_register: Moves the bitwise NOT of an operand into a register.
-    RSB (Reverse Subtract) - rsb_immediate, rsb_register: Subtracts a register from another operand.
-    RSC (Reverse Subtract with Carry) - rsc_immediate, rsc_register: Subtracts with carry, reversing the operands.
-    ̶S̶B̶C̶ ̶(̶S̶u̶b̶t̶r̶a̶c̶t̶ ̶w̶i̶t̶h̶ ̶C̶a̶r̶r̶y̶)̶ - sbc_immediate, sbc_register: Subtracts with borrow (carry flag is inverted for borrow).
-    ̶S̶U̶B̶ ̶(̶S̶u̶b̶t̶r̶a̶c̶t̶)̶ - sub_immediate, sub_register: Subtracts one operand from another.
-    TEQ (Test Equivalence) - teq_immediate, teq_register: Tests if a register is equivalent to another operand (affects flags).
-    TST (Test) - tst_immediate, tst_register: Tests bits in a register against another operand (affects flags).
+* [x] ORR (Logical OR) - orr_immediate, orr_register: Performs a bitwise OR operation.
+* [x] ADC (Add with Carry) - adc_immediate, adc_register: Adds with carry.
+* [x] ADD (Add) - add_immediate, add_register: Adds two operands.
+* [x] AND (Logical AND) - and_immediate, and_register: Performs a bitwise AND operation.
+* [x] BIC (Bit Clear) - bic_immediate, bic_register: Clears bits in a register based on another operand.
+* [x] CMN (Compare Negative) - cmn_immediate, cmn_register: Compares a register with the negative of another operand (affects flags).
+* [x] CMP (Compare) - cmp_immediate, cmp_register: Compares a register with another operand (affects flags).
+* [x] EOR (Exclusive OR) - eor_immediate, eor_register: Performs a bitwise XOR operation.
+* [x] MOV (Move) - mov_immediate, mov_register: Moves a value into a register.
+* [x] MVN (Move Negative) - mvn_immediate, mvn_register: Moves the bitwise NOT of an operand into a register.
+* [x] RSB (Reverse Subtract) - rsb_immediate, rsb_register: Subtracts a register from another operand.
+*RSC (Reverse Subtract with Carry) - rsc_immediate, rsc_register: Subtracts with carry, reversing the operands.
+* [x] SBC (Subtract with Carry) - sbc_immediate, sbc_register: Subtracts with borrow (carry flag is inverted for borrow).
+* [x] SUB (Subtract) - sub_immediate, sub_register: Subtracts one operand from another.
+*TEQ (Test Equivalence) - teq_immediate, teq_register: Tests if a register is equivalent to another operand (affects flags).
+*TST (Test) - tst_immediate, tst_register: Tests bits in a register against another operand (affects flags).
 
 Group 2: Branch Instructions
 
-    B (Branch) - branch: Changes the program counter.
-    BL (Branch with Link) - branch_with_link: Changes the program counter and stores the return address.
-    BX (Branch and Exchange) - branch_and_exchange: Branches and switches instruction set (ARM/Thumb).
-    BLX (Branch with Link and Exchange) - branch_link_and_exchange: Branches with link and switches instruction set.
+*B (Branch) - branch: Changes the program counter.
+*BL (Branch with Link) - branch_with_link: Changes the program counter and stores the return address.
+*BX (Branch and Exchange) - branch_and_exchange: Branches and switches instruction set (ARM/Thumb).
+*BLX (Branch with Link and Exchange) - branch_link_and_exchange: Branches with link and switches instruction set.
 
 Group 3: Load/Store Instructions
 
-    LDM (Load Multiple) - load_multiple, load_multiple_db, load_multiple_ib: Loads multiple registers from memory.
-    LDR (Load Register) - load_register: Loads a word from memory into a register.
-    LDRB (Load Byte) - load_byte: Loads a byte from memory into a register.
-    LDRD (Load Doubleword) - load_doubleword: Loads a doubleword from memory into two registers.
-    LDREX (Load Exclusive) - load_exclusive: Loads a word from memory for exclusive access.
-    LDRH (Load Halfword) - load_halfword: Loads a halfword from memory into a register.
-    LDRSB (Load Signed Byte) - load_signed_byte: Loads a signed byte from memory into a register.
-    LDRSH (Load Signed Halfword) - load_signed_halfword: Loads a signed halfword from memory into a register.
-    LDX (Load Register with Exchange) - load_register_exchange: Loads a word and potentially changes processor mode.
-    STM (Store Multiple) - store_multiple, store_multiple_db, store_multiple_ib: Stores multiple registers to memory.
-    STR (Store Register) - store_register: Stores a word from a register to memory.
-    STRB (Store Byte) - store_byte: Stores a byte from a register to memory.
-    STRD (Store Doubleword) - store_doubleword: Stores a doubleword from two registers to memory.
-    STREX (Store Exclusive) - store_exclusive: Stores a word to memory if exclusive access is still held.
-    STRH (Store Halfword) - store_halfword: Stores a halfword from a register to memory.
-    STX (Store Register with Exchange) - store_register_exchange: Stores a word and potentially changes processor mode.
+*LDM (Load Multiple) - load_multiple, load_multiple_db, load_multiple_ib: Loads multiple registers from memory.
+*LDR (Load Register) - load_register: Loads a word from memory into a register.
+*LDRB (Load Byte) - load_byte: Loads a byte from memory into a register.
+*LDRD (Load Doubleword) - load_doubleword: Loads a doubleword from memory into two registers.
+*LDREX (Load Exclusive) - load_exclusive: Loads a word from memory for exclusive access.
+*LDRH (Load Halfword) - load_halfword: Loads a halfword from memory into a register.
+*LDRSB (Load Signed Byte) - load_signed_byte: Loads a signed byte from memory into a register.
+*LDRSH (Load Signed Halfword) - load_signed_halfword: Loads a signed halfword from memory into a register.
+*LDX (Load Register with Exchange) - load_register_exchange: Loads a word and potentially changes processor mode.
+*STM (Store Multiple) - store_multiple, store_multiple_db, store_multiple_ib: Stores multiple registers to memory.
+*STR (Store Register) - store_register: Stores a word from a register to memory.
+*STRB (Store Byte) - store_byte: Stores a byte from a register to memory.
+*STRD (Store Doubleword) - store_doubleword: Stores a doubleword from two registers to memory.
+*STREX (Store Exclusive) - store_exclusive: Stores a word to memory if exclusive access is still held.
+*STRH (Store Halfword) - store_halfword: Stores a halfword from a register to memory.
+*STX (Store Register with Exchange) - store_register_exchange: Stores a word and potentially changes processor mode.
 
 Group 4: Multiply Instructions
 
-    MUL (Multiply) - multiply: Multiplies two registers.
-    MLA (Multiply Accumulate) - multiply_accumulate: Multiplies two registers and adds the result to a third.
-    MLS (Multiply Subtract) - multiply_subtract: Multiplies two registers and subtracts the result from a third.
-    SMULL (Signed Multiply Long) - signed_multiply_long: Multiplies two signed registers and stores the 64-bit result in two registers.
-    SMLAL (Signed Multiply Accumulate Long) - signed_multiply_accumulate_long: Multiplies two signed registers and adds the 64-bit result to two other registers.
-    UMULL (Unsigned Multiply Long) - unsigned_multiply_long: Multiplies two unsigned registers and stores the 64-bit result in two registers.
-    UMLAL (Unsigned Multiply Accumulate Long) - unsigned_multiply_accumulate_long: Multiplies two unsigned registers and adds the 64-bit result to two other registers.
-    XMLAL (Likely a typo, might be related to multiply) - Function name depends on the actual instruction.
-    XMULL (Likely a typo, might be related to multiply) - Function name depends on the actual instruction.
+*MUL (Multiply) - multiply: Multiplies two registers.
+*MLA (Multiply Accumulate) - multiply_accumulate: Multiplies two registers and adds the result to a third.
+*MLS (Multiply Subtract) - multiply_subtract: Multiplies two registers and subtracts the result from a third.
+*SMULL (Signed Multiply Long) - signed_multiply_long: Multiplies two signed registers and stores the 64-bit result in two registers.
+*SMLAL (Signed Multiply Accumulate Long) - signed_multiply_accumulate_long: Multiplies two signed registers and adds the 64-bit result to two other registers.
+*UMULL (Unsigned Multiply Long) - unsigned_multiply_long: Multiplies two unsigned registers and stores the 64-bit result in two registers.
+*UMLAL (Unsigned Multiply Accumulate Long) - unsigned_multiply_accumulate_long: Multiplies two unsigned registers and adds the 64-bit result to two other registers.
+*XMLAL (Likely a typo, might be related to multiply) - Function name depends on the actual instruction.
+*XMULL (Likely a typo, might be related to multiply) - Function name depends on the actual intended instruction.
 
 Group 5: PSR (Program Status Register) Transfer Instructions
 
-    MRS (Move PSR to Register) - move_psr_to_register: Moves the contents of the PSR to a general-purpose register.
-    MSR (Move Register to PSR) - move_register_to_psr: Moves the contents of a general-purpose register to the PSR.
+*MRS (Move PSR to Register) - move_psr_to_register: Moves the contents of the PSR to a general-purpose register.
+*MSR (Move Register to PSR) - move_register_to_psr: Moves the contents of a general-purpose register to the PSR.
 
 Group 6: Bit Manipulation Instructions
 
-    BFC (Bit Field Clear) - bit_field_clear: Clears a specified bit field in a register.
-    BFI (Bit Field Insert) - bit_field_insert: Inserts a bit field from one register into another.
-    CLZ (Count Leading Zeros) - count_leading_zeros: Counts the number of leading zero bits in a register.
-    SBFX (Signed Bit Field Extract) - signed_bit_field_extract: Extracts a signed bit field from a register.
-    UBFX (Unsigned Bit Field Extract) - unsigned_bit_field_extract: Extracts an unsigned bit field from a register.
+*BFC (Bit Field Clear) - bit_field_clear: Clears a specified bit field in a register.
+*BFI (Bit Field Insert) - bit_field_insert: Inserts a bit field from one register into another.
+*CLZ (Count Leading Zeros) - count_leading_zeros: Counts the number of leading zero bits in a register.
+*SBFX (Signed Bit Field Extract) - signed_bit_field_extract: Extracts a signed bit field from a register.
+*UBFX (Unsigned Bit Field Extract) - unsigned_bit_field_extract: Extracts an unsigned bit field from a register.
 
 Group 7: Shift Instructions (Likely handled within data processing, RRX might be standalone)
 
-    ASR (Arithmetic Shift Right) - Likely part of shifter_operand decoding.
-    LSL (Logical Shift Left) - Likely part of shifter_operand decoding.
-    LSR (Logical Shift Right) - Likely part of shifter_operand decoding.
-    RRX (Rotate Right with Extend) - Might have a specific instruction form, function name depends on implementation.
-    LSX (Likely a typo) - Function name depends on the actual intended instruction.
+*ASR (Arithmetic Shift Right) - Likely part of shifter_operand decoding.
+*LSL (Logical Shift Left) - Likely part of shifter_operand decoding.
+*LSR (Logical Shift Right) - Likely part of shifter_operand decoding.
+*RRX (Rotate Right with Extend) - Might have a specific instruction form, function name depends on implementation.
+*LSX (Likely a typo) - Function name depends on the actual intended instruction.
 
 Group 8: Other Instructions
 
-    CPS (Change Processor State) - change_processor_state: Changes the processor mode or interrupt enable bits.
-    SVC (Software Interrupt) - software_interrupt: Initiates a software interrupt exception.
-    MCR (Move to Coprocessor from ARM Register) - move_to_coprocessor: Moves data from an ARM register to a coprocessor register.
-    MRC (Move to ARM Register from Coprocessor) - move_from_coprocessor: Moves data from a coprocessor register to an ARM register.
-
+*CPS (Change Processor State) - change_processor_state: Changes the processor mode or interrupt enable bits.
+*SVC (Software Interrupt) - software_interrupt: Initiates a software interrupt exception.
+*MCR (Move to Coprocessor from ARM Register) - move_to_coprocessor: Moves data from an ARM register to a coprocessor register.
+*MRC (Move to ARM Register from Coprocessor) - move_from_coprocessor: Moves data from a coprocessor register to an ARM register.

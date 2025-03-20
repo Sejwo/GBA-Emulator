@@ -28,7 +28,7 @@ fn main() {
     let mut cpu = Cpu::new();
 
     // Initialize the program counter (PC) to the start of the program.
-    cpu.cpu_state.PC = 0;
+    cpu.cpu_state.set_register(15, 0);
 
     // Run the program. The CPU will fetch, decode, and execute instructions in a loop.
     cpu.run_program(&memory);
