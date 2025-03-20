@@ -504,6 +504,59 @@ mod tests {
         );
     }
     #[test]
+    fn test_rsc_register_without_s() {
+        let instruction: u32 = u32::from_le_bytes([0x03, 0x10, 0xE2, 0xE0]); // RSC R1, R2, R3
+        let decoded = decode_arm(instruction);
+        assert_eq!(
+            decoded,
+            Instruction::RscRegister {
+                rd: 1,
+                rn: 2,
+                rm: 3,
+                shift: ShiftType::LSL,
+                shift_amount: 0,
+                set_flags: false,
+            }
+        );
+
+        let mut cpu = Cpu::new();
+        cpu.cpu_state.CPSR.set_carry(true);
+        cpu.cpu_state.set_register(2, 3); // R2 = 3
+        cpu.cpu_state.set_register(3, 10); // R3 = 10
+        cpu.rsc_register(1, 2, 3, ShiftType::LSL, 0, false); // R1 = R3 - R2 - !C = 10 - 3 - 0 = 7
+
+        assert_eq!(cpu.cpu_state.get_register(1), 7);
+    }
+
+    #[test]
+    fn test_rsc_register_with_s() {
+        let instruction: u32 = u32::from_le_bytes([0x03, 0x10, 0xF2, 0xE0]); // RSCS R1, R2, R3
+        let decoded = decode_arm(instruction);
+        assert_eq!(
+            decoded,
+            Instruction::RscRegister {
+                rd: 1,
+                rn: 2,
+                rm: 3,
+                shift: ShiftType::LSL,
+                shift_amount: 0,
+                set_flags: true,
+            }
+        );
+
+        let mut cpu = Cpu::new();
+        cpu.cpu_state.CPSR.set_carry(false);
+        cpu.cpu_state.set_register(2, 10); // R2 = 10
+        cpu.cpu_state.set_register(3, 1); // R3 = 1
+        cpu.rsc_register(1, 2, 3, ShiftType::LSL, 0, true); // R1 = R3 - R2 - !C = 1 - 10 - 1 = -10
+
+        assert_eq!(cpu.cpu_state.get_register(1) as i32, -10);
+        assert_eq!(cpu.cpu_state.CPSR.is_zero(), false);
+        assert_eq!(cpu.cpu_state.CPSR.is_negative(), true);
+        assert_eq!(cpu.cpu_state.CPSR.is_carry(), true);
+        assert_eq!(cpu.cpu_state.CPSR.is_overflow(), false);
+    }
+    #[test]
     fn test_decode_unknown() {
         let instruction = 0xFFFFFFFF; // Invalid instruction
         let decoded = decode_arm(instruction);

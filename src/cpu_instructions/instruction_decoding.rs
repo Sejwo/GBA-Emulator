@@ -182,6 +182,20 @@ pub enum Instruction {
         shift_amount: u8,
         set_flags: bool,
     },
+    RscImmediate {
+        rd: usize,
+        rn: usize,
+        imm12: u32,
+        set_flags: bool,
+    },
+    RscRegister {
+        rd: usize,
+        rn: usize,
+        rm: usize,
+        shift: ShiftType,
+        shift_amount: u8,
+        set_flags: bool,
+    },
     Unknown(u32),
     Nop,
 }
@@ -254,6 +268,12 @@ pub fn decode_arm(instruction: u32) -> Instruction {
                     set_flags,
                 },
                 0b0101 => Instruction::AdcImmediate {
+                    rd,
+                    rn,
+                    imm12,
+                    set_flags,
+                },
+                0b0111 => Instruction::RscImmediate {
                     rd,
                     rn,
                     imm12,
@@ -336,6 +356,14 @@ pub fn decode_arm(instruction: u32) -> Instruction {
                     set_flags,
                 },
                 0b0110 => Instruction::SbcRegister {
+                    rd,
+                    rn,
+                    rm,
+                    shift: shift_type,
+                    shift_amount,
+                    set_flags,
+                },
+                0b0111 => Instruction::RscRegister {
                     rd,
                     rn,
                     rm,

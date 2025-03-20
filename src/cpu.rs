@@ -6,8 +6,8 @@ use crate::memory::Memory;
 #[derive(Debug, Default, Copy, Clone)]
 pub struct CpuState {
     pub registers: [u32; 16], // Regular registers (r0-r15)
-    pub CPSR: Cpsr,                   // Current Program Status Register
-    pub SPSR: Cpsr,                   // Saved Program Status Register
+    pub CPSR: Cpsr,           // Current Program Status Register
+    pub SPSR: Cpsr,           // Saved Program Status Register
 }
 #[allow(dead_code)]
 impl CpuState {
@@ -533,6 +533,24 @@ impl Cpu {
                     set_flags,
                 } => {
                     self.rsb_register(rd, rn, rm, shift, shift_amount, set_flags);
+                }
+                Instruction::RscImmediate {
+                    rd,
+                    rn,
+                    imm12,
+                    set_flags,
+                } => {
+                    self.rsc_immediate(rd, rn, imm12, set_flags);
+                }
+                Instruction::RscRegister {
+                    rd,
+                    rn,
+                    rm,
+                    shift,
+                    shift_amount,
+                    set_flags,
+                } => {
+                    self.rsc_register(rd, rm, rn, shift, shift_amount, set_flags);
                 }
                 Instruction::Unknown(instruction) => {
                     // Handle unknown instructions (e.g., raise an exception).
