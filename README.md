@@ -24,4 +24,5 @@ MOV
 SBC
 SUB
 MVN
+RSB
 
