@@ -1,5 +1,8 @@
+use crate::cpu_instructions::branch_ops::BranchOps;
 use crate::cpu_instructions::instruction_decoding::{decode_arm, Instruction, ShiftType};
 use crate::memory::Memory;
+
+const HALT_INSTRUCTION: u32 = 0xFFFFFFFF;
 
 #[allow(dead_code)]
 #[allow(non_snake_case)]
@@ -30,7 +33,9 @@ impl CpuState {
     pub fn fetch_instruction(&mut self, memory: &Memory) -> (u32, bool) {
         let pc = self.get_register(15);
         let instruction = memory.read_word(pc);
-        self.set_register(15, pc.wrapping_add(4)); // Increment PC by 4
+        if instruction != HALT_INSTRUCTION {
+            self.set_register(15, pc.wrapping_add(4));
+        }
         (instruction, self.CPSR.is_thumb_state())
     }
 }
@@ -66,10 +71,18 @@ impl Cpsr {
         println!("Value before: 0x{:08X}", self.value);
         if set {
             self.value |= 1u32 << Self::NEGATIVE_BIT;
-            println!("Setting bit {} (mask: 0x{:08X})", Self::NEGATIVE_BIT, 1 << Self::NEGATIVE_BIT);
+            println!(
+                "Setting bit {} (mask: 0x{:08X})",
+                Self::NEGATIVE_BIT,
+                1 << Self::NEGATIVE_BIT
+            );
         } else {
             self.value &= !(1u32 << Self::NEGATIVE_BIT);
-            println!("Clearing bit {} (mask: 0x{:08X})", Self::NEGATIVE_BIT, !(1 << Self::NEGATIVE_BIT));
+            println!(
+                "Clearing bit {} (mask: 0x{:08X})",
+                Self::NEGATIVE_BIT,
+                !(1 << Self::NEGATIVE_BIT)
+            );
         }
         println!("Value after: 0x{:08X}", self.value);
     }
@@ -562,6 +575,9 @@ impl Cpu {
                 } => {
                     self.rsc_register(rd, rn, rm, shift, shift_amount, set_flags);
                 }
+                Instruction::Branch { branch_type, imm24 } => {
+                    self.execute_branch(branch_type, imm24, instruction);
+                }
                 Instruction::Unknown(instruction) => {
                     // Handle unknown instructions (e.g., raise an exception).
                     panic!("Unknown instruction: 0x{:X}", instruction);
@@ -572,7 +588,7 @@ impl Cpu {
     }
 
     pub fn run_program(&mut self, memory: &Memory) {
-        const HALT_INSTRUCTION: u32 = 0xFFFFFFFF; // Or another sentinel value.
+        const HALT_INSTRUCTION: u32 = 0xFFFFFFFF;
         loop {
             let (instruction, is_thumb) = self.cpu_state.fetch_instruction(memory);
             if is_thumb {

@@ -1,7 +1,9 @@
 #[cfg(test)]
 mod tests {
     use emulator::cpu::*;
+    use emulator::cpu_instructions::branch_ops::*;
     use emulator::cpu_instructions::instruction_decoding::*;
+    use emulator::memory::*;
 
     #[test]
     fn test_decode_add_immediate() {
@@ -556,6 +558,96 @@ mod tests {
         assert_eq!(cpu.cpu_state.CPSR.is_carry(), false);
         assert_eq!(cpu.cpu_state.CPSR.is_overflow(), false);
     }
+    #[test]
+    fn test_branch_instruction_from_raw() {
+        // Create memory with a size large enough (here, 1024 bytes)
+        let mut memory = Memory::new(1024);
+
+        // Write the branch (B) instruction at address 0.
+        // Encoding: 0xEA000006
+        // Breakdown:
+        //  - Condition: 0xE (AL)
+        //  - Bits [27:25]: 101 (branch)
+        //  - Bit 24: 0 (B, not BL)
+        //  - imm24: 6 (i.e., 0x000006)
+        // In little-endian, the bytes are: [0x06, 0x00, 0x00, 0xEA].
+        let branch_instruction: [u8; 4] = [0x06, 0x00, 0x00, 0xEA];
+        memory.write_bytes(0, &branch_instruction);
+
+        // Write the halt instruction (0xFFFFFFFF) at the branch target address.
+        // As calculated below, for imm24 = 6:
+        //   offset = (6 << 2) = 24.
+        // Assume fetch_instruction adds 4 when reading,
+        // so current PC becomes 4 when executing the branch.
+        // Then target_pc = 4 + 24 + 4 = 32.
+        // Write halt (0xFFFFFFFF) starting at address 32.
+        let halt_instruction: [u8; 4] = [0xFF, 0xFF, 0xFF, 0xFF];
+        memory.write_bytes(32, &halt_instruction);
+
+        // Create a new CPU instance.
+        let mut cpu = Cpu::new();
+
+        // Initialize the PC (register 15) to 0.
+        cpu.cpu_state.set_register(15, 0);
+
+        // Run the program.
+        cpu.run_program(&memory);
+
+        // When fetching from memory, fetch_instruction increments PC by 4.
+        // So when the branch is executed, current PC = 4.
+        // For imm24 = 6:
+        //   Offset = 6 << 2 = 24.
+        // Adding a pipeline offset of 4 gives target PC = 4 + 24 + 4 = 32.
+        // Since there is a halt instruction at address 32, the CPU should stop.
+        // We then assert that PC is 32.
+        let expected_pc = 32;
+        assert_eq!(
+            cpu.cpu_state.get_register(15),
+            expected_pc,
+            "Branch target PC should be {}",
+            expected_pc
+        );
+    }
+
+    // Test for a Branch with Link (BL) instruction.
+    #[test]
+    fn test_branch_with_link_instruction_from_raw() {
+        let mut memory = Memory::new(1024);
+
+        // Write the BL instruction at address 0.
+        // BL is encoded as 0xEB000006.
+        // In little-endian, the bytes are: [0x06, 0x00, 0x00, 0xEB].
+        let branch_link_instruction: [u8; 4] = [0x06, 0x00, 0x00, 0xEB];
+        memory.write_bytes(0, &branch_link_instruction);
+
+        // Write the halt instruction at the expected branch target.
+        // Using the same calculation: target PC = 4 (after fetch) + 24 + 4 = 32.
+        let halt_instruction: [u8; 4] = [0xFF, 0xFF, 0xFF, 0xFF];
+        memory.write_bytes(32, &halt_instruction);
+
+        let mut cpu = Cpu::new();
+        cpu.cpu_state.set_register(15, 0);
+
+        cpu.run_program(&memory);
+
+        // For BL, in addition to updating PC to 32, the link register (r14) should be set.
+        // Convention: r14 receives the PC value before the branch (which is 4).
+        let expected_pc = 32;
+        let expected_lr = 4;
+        assert_eq!(
+            cpu.cpu_state.get_register(15),
+            expected_pc,
+            "Branch with link target PC should be {}",
+            expected_pc
+        );
+        assert_eq!(
+            cpu.cpu_state.get_register(14),
+            expected_lr,
+            "Link register (r14) should be {} for BL",
+            expected_lr
+        );
+    }
+
     #[test]
     fn test_decode_unknown() {
         let instruction = 0xFFFFFFFF; // Invalid instruction

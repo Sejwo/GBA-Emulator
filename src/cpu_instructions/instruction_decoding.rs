@@ -196,6 +196,12 @@ pub enum Instruction {
         shift_amount: u8,
         set_flags: bool,
     },
+
+    //Branch instructions
+    Branch {
+        branch_type: crate::cpu_instructions::branch_ops::BranchType,
+        imm24: u32,
+    },
     Unknown(u32),
     Nop,
 }
@@ -434,6 +440,14 @@ pub fn decode_arm(instruction: u32) -> Instruction {
         } else {
             Instruction::Unknown(instruction)
         };
+    } else if ((instruction >> 25) & 0b111) == 0b101 {
+        let branch_type = if ((instruction >> 24) & 1) == 1 {
+            crate::cpu_instructions::branch_ops::BranchType::BL
+        } else {
+            crate::cpu_instructions::branch_ops::BranchType::B
+        };
+        let imm24 = instruction & 0x00FF_FFFF;
+        return Instruction::Branch { branch_type, imm24, };
     }
 
     Instruction::Unknown(instruction)

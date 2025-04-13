@@ -19,8 +19,8 @@
 
 Group 2: Branch Instructions
 
-*B (Branch) - branch: Changes the program counter.
-*BL (Branch with Link) - branch_with_link: Changes the program counter and stores the return address.
+* [x] B (Branch) - branch: Changes the program counter.
+* [x] BL (Branch with Link) - branch_with_link: Changes the program counter and stores the return address.
 *BX (Branch and Exchange) - branch_and_exchange: Branches and switches instruction set (ARM/Thumb).
 *BLX (Branch with Link and Exchange) - branch_link_and_exchange: Branches with link and switches instruction set.
 
