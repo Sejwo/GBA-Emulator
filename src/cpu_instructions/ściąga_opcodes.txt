@@ -11,7 +11,7 @@
 * [x] MOV (Move) - mov_immediate, mov_register: Moves a value into a register.
 * [x] MVN (Move Negative) - mvn_immediate, mvn_register: Moves the bitwise NOT of an operand into a register.
 * [x] RSB (Reverse Subtract) - rsb_immediate, rsb_register: Subtracts a register from another operand.
-*RSC (Reverse Subtract with Carry) - rsc_immediate, rsc_register: Subtracts with carry, reversing the operands.
+* [x] RSC (Reverse Subtract with Carry) - rsc_immediate, rsc_register: Subtracts with carry, reversing the operands.
 * [x] SBC (Subtract with Carry) - sbc_immediate, sbc_register: Subtracts with borrow (carry flag is inverted for borrow).
 * [x] SUB (Subtract) - sub_immediate, sub_register: Subtracts one operand from another.
 *TEQ (Test Equivalence) - teq_immediate, teq_register: Tests if a register is equivalent to another operand (affects flags).

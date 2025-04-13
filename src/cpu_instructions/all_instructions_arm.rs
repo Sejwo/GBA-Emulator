@@ -452,17 +452,17 @@ impl Cpu {
         let effective_b = rn_val.wrapping_add(not_c);
         // Compute Rd = shifter_operand - effective_b
         let result = shifter_operand.wrapping_sub(effective_b);
-    
+
         // Compute flags:
         // According to the formal spec:
         //   C flag = NOT(BorrowFrom(shifter_operand - effective_b))
         // However, our tests indicate that the new C flag should simply be the inverse of the input C.
         let new_carry = !self.cpu_state.CPSR.is_carry();
-    
+
         // Compute overflow for subtraction:
         // overflow = (((shifter_operand ^ effective_b) & (shifter_operand ^ result)) >> 31) != 0
         let overflow = (((shifter_operand ^ effective_b) & (shifter_operand ^ result)) >> 31) != 0;
-    
+
         self.cpu_state.set_register(rd, result);
         if set_flags && (rd != 15) {
             self.update_arithmetic_flags(result, new_carry, overflow);
@@ -470,7 +470,7 @@ impl Cpu {
             self._copy_spsr_to_cpsr();
         }
     }
-    
+
     pub fn rsc_register(
         &mut self,
         rd: usize,
@@ -480,34 +480,32 @@ impl Cpu {
         shift_amount: u8,
         set_flags: bool,
     ) {
-        // In the register form, shifter_operand is obtained by shifting the value in rm.
-        let (shifter_operand, _) = self.apply_shift(self.cpu_state.get_register(rm), shift, shift_amount);
+        let (shifter_operand, _) =
+            self.apply_shift(self.cpu_state.get_register(rm), shift, shift_amount);
         let rn_val = self.cpu_state.get_register(rn);
-        // NOT(C) is 0 if input C is set, or 1 if clear.
-        let not_c = if self.cpu_state.CPSR.is_carry() { 0 } else { 1 };
-        // effective subtrahend = Rn + NOT(C)
-        let effective_b = rn_val.wrapping_add(not_c);
-        // Compute Rd = shifter_operand - effective_b
-        let result = shifter_operand.wrapping_sub(effective_b);
-    
-        // Per the formal definition the new C flag should be:
-        //   C flag = NOT(BorrowFrom(shifter_operand - effective_b))
-        // Our tests indicate that it should simply be the inverse of the input C.
-        let new_carry = !self.cpu_state.CPSR.is_carry();
-    
-        // Compute overflow for subtraction:
-        // overflow = (((shifter_operand ^ effective_b) & (shifter_operand ^ result)) >> 31) != 0
-        let overflow = (((shifter_operand ^ effective_b) & (shifter_operand ^ result)) >> 31) != 0;
-    
+
+        // ARM logic: NOT(Carry) is 1 if carry is clear, or 0 if carry is set
+        let carry_in = if self.cpu_state.CPSR.is_carry() { 0 } else { 1 };
+        let effective_subtrahend = rn_val.wrapping_add(carry_in);
+
+        // Perform subtraction with proper borrow detection
+        let (result, borrow_occurred) = shifter_operand.overflowing_sub(effective_subtrahend);
+
+        // Set Carry flag correctly (Carry = !borrow)
+        let new_carry = !borrow_occurred;
+
+        // Compute Overflow correctly (signed overflow detection)
+        let overflow =
+            (((shifter_operand ^ effective_subtrahend) & (shifter_operand ^ result)) >> 31) != 0;
+
+        // Store result
         self.cpu_state.set_register(rd, result);
+
+        // Update flags if required
         if set_flags && (rd != 15) {
             self.update_arithmetic_flags(result, new_carry, overflow);
-        } else {
+        } else if rd == 15 {
             self._copy_spsr_to_cpsr();
         }
     }
-    
-    
-    
-    
 }

@@ -549,11 +549,11 @@ mod tests {
         cpu.cpu_state.set_register(2, 10); // R2 = 10
         cpu.cpu_state.set_register(3, 1); // R3 = 1
         cpu.rsc_register(1, 2, 3, ShiftType::LSL, 0, true); // R1 = R3 - R2 - !C = 1 - 10 - 1 = -10
-
+        cpu.cpu_state.CPSR.display_all_flags();
         assert_eq!(cpu.cpu_state.get_register(1) as i32, -10);
         assert_eq!(cpu.cpu_state.CPSR.is_zero(), false);
         assert_eq!(cpu.cpu_state.CPSR.is_negative(), true);
-        assert_eq!(cpu.cpu_state.CPSR.is_carry(), true);
+        assert_eq!(cpu.cpu_state.CPSR.is_carry(), false);
         assert_eq!(cpu.cpu_state.CPSR.is_overflow(), false);
     }
     #[test]

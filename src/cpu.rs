@@ -3,7 +3,7 @@ use crate::memory::Memory;
 
 #[allow(dead_code)]
 #[allow(non_snake_case)]
-#[derive(Debug, Default, Copy, Clone)]
+#[derive(Debug, Default)]
 pub struct CpuState {
     pub registers: [u32; 16], // Regular registers (r0-r15)
     pub CPSR: Cpsr,           // Current Program Status Register
@@ -37,7 +37,7 @@ impl CpuState {
 
 #[derive(Debug, Default, Copy, Clone)]
 pub struct Cpsr {
-    value: u32, //Stores the raw CPSR
+    pub value: u32, //Stores the raw CPSR
 }
 impl Cpsr {
     const NEGATIVE_BIT: u32 = 31;
@@ -56,17 +56,22 @@ impl Cpsr {
     #[inline(always)]
     #[allow(unused_parens)]
     pub fn is_negative(&self) -> bool {
-        (self.value >> Self::NEGATIVE_BIT & 1 == 1)
+        ((self.value >> Self::NEGATIVE_BIT) & 1) == 1
     }
 
     #[inline(always)]
     #[allow(dead_code)]
     pub fn set_negative(&mut self, set: bool) {
+        println!("set_negative called with set = {}", set);
+        println!("Value before: 0x{:08X}", self.value);
         if set {
-            self.value |= 1 << Self::NEGATIVE_BIT;
+            self.value |= 1u32 << Self::NEGATIVE_BIT;
+            println!("Setting bit {} (mask: 0x{:08X})", Self::NEGATIVE_BIT, 1 << Self::NEGATIVE_BIT);
         } else {
-            self.value &= !1 << Self::NEGATIVE_BIT;
+            self.value &= !(1u32 << Self::NEGATIVE_BIT);
+            println!("Clearing bit {} (mask: 0x{:08X})", Self::NEGATIVE_BIT, !(1 << Self::NEGATIVE_BIT));
         }
+        println!("Value after: 0x{:08X}", self.value);
     }
 
     //  ---Zero flag(Z)---
@@ -81,9 +86,9 @@ impl Cpsr {
     #[allow(dead_code)]
     pub fn set_zero(&mut self, set: bool) {
         if set {
-            self.value |= 1 << Self::ZERO_BIT;
+            self.value |= 1u32 << Self::ZERO_BIT;
         } else {
-            self.value &= 1 << Self::ZERO_BIT;
+            self.value &= !(1u32 << Self::ZERO_BIT);
         }
     }
 
@@ -99,9 +104,9 @@ impl Cpsr {
     #[allow(dead_code)]
     pub fn set_carry(&mut self, set: bool) {
         if set {
-            self.value |= 1 << Self::CARRY_BIT;
+            self.value |= 1u32 << Self::CARRY_BIT;
         } else {
-            self.value &= 1 << Self::CARRY_BIT;
+            self.value &= !(1u32 << Self::CARRY_BIT);
         }
     }
 
@@ -116,9 +121,9 @@ impl Cpsr {
     #[inline(always)]
     pub fn set_overflow(&mut self, set: bool) {
         if set {
-            self.value |= 1 << Self::OVERFLOW_BIT;
+            self.value |= 1u32 << Self::OVERFLOW_BIT;
         } else {
-            self.value &= 1 << Self::OVERFLOW_BIT;
+            self.value &= !(1u32 << Self::OVERFLOW_BIT);
         }
     }
 
@@ -202,10 +207,15 @@ impl Cpu {
 
     // Helper function to update flags after arithmetic operations.
     pub fn update_arithmetic_flags(&mut self, result: u32, carry: bool, overflow: bool) {
+        println!("CPSR address before update: {:p}", &self.cpu_state.CPSR);
+        println!("CPSR before update: 0x{:08X}", self.cpu_state.CPSR.value);
+
         self.cpu_state.CPSR.set_zero(result == 0);
         self.cpu_state.CPSR.set_negative((result as i32) < 0);
         self.cpu_state.CPSR.set_carry(carry);
         self.cpu_state.CPSR.set_overflow(overflow);
+        println!("CPSR address after update: {:p}", &self.cpu_state.CPSR);
+        println!("CPSR after update:  0x{:08X}", self.cpu_state.CPSR.value);
     }
 
     // Helper function to update flags after logical operations.
@@ -550,7 +560,7 @@ impl Cpu {
                     shift_amount,
                     set_flags,
                 } => {
-                    self.rsc_register(rd, rm, rn, shift, shift_amount, set_flags);
+                    self.rsc_register(rd, rn, rm, shift, shift_amount, set_flags);
                 }
                 Instruction::Unknown(instruction) => {
                     // Handle unknown instructions (e.g., raise an exception).
