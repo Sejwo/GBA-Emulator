@@ -647,6 +647,58 @@ mod tests {
             expected_lr
         );
     }
+    #[test]
+    fn test_decode_bx() {
+        // 0xE12FFF10 is the standard encoding for BX R0.
+        let bx_instr: u32 = 0xE12FFF10;
+        let decoded = decode_arm(bx_instr);
+        assert_eq!(decoded, Instruction::BranchExchange { rm: 0 });
+    }
+
+    // Test the decoding of a BLX instruction.
+    #[test]
+    fn test_decode_blx() {
+        // 0xE12FFF30 is the encoding for BLX R0.
+        let blx_instr: u32 = 0xE12FFF30;
+        let decoded = decode_arm(blx_instr);
+        assert_eq!(decoded, Instruction::BranchLinkExchange { rm: 0 });
+    }
+
+    // Test the execution of BX, verifying the mode switch and PC update.
+    #[test]
+    fn test_execute_bx_switch_thumb() {
+        let mut cpu = Cpu::new();
+        // Set R0 to a target address with the LSB set (indicating Thumb mode).
+        // For example, 0x08000001 means the branch target should be 0x08000000 with Thumb mode.
+        cpu.cpu_state.set_register(0, 0x08000001);
+        // Initialize the PC to a dummy starting address.
+        cpu.cpu_state.set_register(15, 0x08000000);
+        // Execute BX using register 0.
+        cpu.branch_exchange(0);
+        // After executing BX, the PC should be set to 0x08000000 (with the LSB cleared)
+        // and the CPSR Thumb flag should be set.
+        assert_eq!(cpu.cpu_state.get_register(15), 0x08000000);
+        assert!(cpu.cpu_state.CPSR.is_thumb_state());
+    }
+
+    // Test the execution of BLX, verifying both the link and the branch.
+    #[test]
+    fn test_execute_blx_with_link() {
+        let mut cpu = Cpu::new();
+        // Set R1 to a target address with LSB set (to indicate Thumb mode).
+        // This means the actual branch target should be 0x08001000.
+        cpu.cpu_state.set_register(1, 0x08001001);
+        // Initialize the PC to a known value.
+        cpu.cpu_state.set_register(15, 0x08000000);
+        // Execute BLX using register 1.
+        cpu.branch_link_exchange(1);
+        // Verify that the Link Register (R14) is set to the old PC value.
+        assert_eq!(cpu.cpu_state.get_register(14), 0x08000000);
+        // Verify that the PC is updated to the target address with LSB cleared (0x08001000).
+        assert_eq!(cpu.cpu_state.get_register(15), 0x08001000);
+        // Since the LSB was set, the Thumb mode flag should be on.
+        assert!(cpu.cpu_state.CPSR.is_thumb_state());
+    }
 
     #[test]
     fn test_decode_unknown() {

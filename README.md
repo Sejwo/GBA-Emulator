@@ -32,4 +32,9 @@ SBC
 SUB
 MVN
 RSB
+RSC
+B
+BL
+BX
+BLX
 

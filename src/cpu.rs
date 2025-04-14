@@ -578,6 +578,12 @@ impl Cpu {
                 Instruction::Branch { branch_type, imm24 } => {
                     self.execute_branch(branch_type, imm24, instruction);
                 }
+                Instruction::BranchExchange { rm } => {
+                    self.branch_exchange(rm);
+                }
+                Instruction::BranchLinkExchange { rm } =>{
+                    self.branch_link_exchange(rm);
+                }
                 Instruction::Unknown(instruction) => {
                     // Handle unknown instructions (e.g., raise an exception).
                     panic!("Unknown instruction: 0x{:X}", instruction);

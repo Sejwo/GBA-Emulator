@@ -202,6 +202,12 @@ pub enum Instruction {
         branch_type: crate::cpu_instructions::branch_ops::BranchType,
         imm24: u32,
     },
+    BranchExchange {
+        rm: usize,
+    },
+    BranchLinkExchange {
+        rm: usize, //It would seem GBA did not have BLX instruction, but I found it in another emulator so just for being safe/potential upgrade(idk why) I'm keeping it in
+    },
     Unknown(u32),
     Nop,
 }
@@ -218,6 +224,22 @@ pub fn decode_arm(instruction: u32) -> Instruction {
     // Check for NOP first.
     if instruction & 0x0FFF_FFF0 == 0x0320_F000 {
         return Instruction::Nop;
+    }
+    //branch instructions
+    if ((instruction >> 25) & 0b111) == 0b101 {
+        let branch_type = if ((instruction >> 24) & 1) == 1 {
+            crate::cpu_instructions::branch_ops::BranchType::BL
+        } else {
+            crate::cpu_instructions::branch_ops::BranchType::B
+        };
+        let imm24 = instruction & 0x00FF_FFFF;
+        return Instruction::Branch { branch_type, imm24 };
+    } else if (instruction & 0x0FFFFFF0) == 0x012FFF10 {
+        let rm: usize = (instruction & 0xF) as usize;
+        return Instruction::BranchExchange { rm: rm };
+    } else if (instruction & 0x0FFFFFF0) == 0x012FFF30 {
+        let rm: usize = (instruction & 0xF) as usize;
+        return Instruction::BranchLinkExchange { rm: rm };
     }
 
     if (instruction >> 26) & 0b11 == 0b00 {
@@ -440,14 +462,6 @@ pub fn decode_arm(instruction: u32) -> Instruction {
         } else {
             Instruction::Unknown(instruction)
         };
-    } else if ((instruction >> 25) & 0b111) == 0b101 {
-        let branch_type = if ((instruction >> 24) & 1) == 1 {
-            crate::cpu_instructions::branch_ops::BranchType::BL
-        } else {
-            crate::cpu_instructions::branch_ops::BranchType::B
-        };
-        let imm24 = instruction & 0x00FF_FFFF;
-        return Instruction::Branch { branch_type, imm24, };
     }
 
     Instruction::Unknown(instruction)

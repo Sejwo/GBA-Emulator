@@ -17,6 +17,8 @@ pub struct BranchInstruction {
 #[allow(dead_code)]
 pub trait BranchOps {
     fn execute_branch(&mut self, branch_type: BranchType, imm24: u32, raw_instr: u32);
+    fn branch_exchange(&mut self, rm: usize);
+    fn branch_link_exchange(&mut self, rm:usize);
 }
 #[allow(dead_code)]
 impl BranchOps for Cpu {
@@ -42,6 +44,22 @@ impl BranchOps for Cpu {
         println!(
             "Branch executed: raw 0x{:08X}, type: {:?}, imm24: 0x{:06X}, offset: {}, target_pc set to: 0x{:08X}",
             raw_instr, branch_type, imm24, offset, target_pc
-        );
+        );  
+    }
+    fn branch_exchange(&mut self, rm:usize){
+        let target = self.cpu_state.get_register(rm);
+        if (target & 1) == 1{
+            self.cpu_state.CPSR.set_thumb_state(true);
+        }else{
+            self.cpu_state.CPSR.set_thumb_state(false);
+        }
+        self.cpu_state.set_register(15, target&!1);
+        println!("BX executed: Branching to 0x{:09X}", (target &!1))
+    }
+    fn branch_link_exchange(&mut self, rm:usize) {
+        let return_address = self.cpu_state.get_register(15);
+        self.cpu_state.set_register(14, return_address);
+        println!("BLX executed: Saving return address 0x{:08X} in R14", return_address);
+        self.branch_exchange(rm);
     }
 }
