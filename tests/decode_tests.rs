@@ -1,9 +1,10 @@
 #[cfg(test)]
 mod tests {
+    const HALT: u32 = 0xFFFFFFFF;
     use emulator::cpu::*;
     use emulator::cpu_instructions::branch_ops::*;
     use emulator::cpu_instructions::instruction_decoding::*;
-    use emulator::memory::*;
+    use emulator::memory::Memory;
 
     #[test]
     fn test_decode_add_immediate() {
@@ -591,7 +592,7 @@ mod tests {
         cpu.cpu_state.set_register(15, 0);
 
         // Run the program.
-        cpu.run_program(&memory);
+        cpu.run_program(&mut memory);
 
         // When fetching from memory, fetch_instruction increments PC by 4.
         // So when the branch is executed, current PC = 4.
@@ -628,7 +629,7 @@ mod tests {
         let mut cpu = Cpu::new();
         cpu.cpu_state.set_register(15, 0);
 
-        cpu.run_program(&memory);
+        cpu.run_program(&mut memory);
 
         // For BL, in addition to updating PC to 32, the link register (r14) should be set.
         // Convention: r14 receives the PC value before the branch (which is 4).
@@ -698,6 +699,115 @@ mod tests {
         assert_eq!(cpu.cpu_state.get_register(15), 0x08001000);
         // Since the LSB was set, the Thumb mode flag should be on.
         assert!(cpu.cpu_state.CPSR.is_thumb_state());
+    }
+    // Test 1: LDR Pre-Indexed, add mode with write-back.
+    #[test]
+    fn test_cpu_ldr_pre_index_add_writeback() {
+        let mut memory = Memory::new(1024);
+        let mut cpu = Cpu::new();
+
+        // Set base register R1 = 100.
+        cpu.cpu_state.set_register(1, 100);
+
+        // Encode LDR: 0xE5B12008.
+        // Instruction at address 0.
+        memory.write_word(0, 0xE5B12008);
+        // Place HALT at address 4.
+        memory.write_word( 4, HALT);
+
+        // At effective address: 100+8 = 108, store 0xDEADBEEF.
+        memory.write_word( 108, 0xDEADBEEF);
+
+        // Run program.
+        cpu.run_program(&mut memory);
+
+        // Expect R2 = 0xDEADBEEF, and R1 updated to 108.
+        assert_eq!(cpu.cpu_state.get_register(2), 0xDEADBEEF);
+        assert_eq!(cpu.cpu_state.get_register(1), 108);
+    }
+
+    // Test 2: LDR Post-Indexed, add mode with no write-back.
+    #[test]
+    fn test_cpu_ldr_post_index_no_writeback() {
+        let mut memory = Memory::new(1024);
+        let mut cpu = Cpu::new();
+
+        // Set base register R1 = 200.
+        cpu.cpu_state.set_register(1, 200);
+
+        // Encode LDR: 0xE4912010 (P=0, W=0, offset = 16).
+        memory.write_word(0, 0xE4912010);
+        memory.write_word(4, HALT);
+
+        // In post-index, effective address = base (200). Place 0xCAFEBABE at address 200.
+        memory.write_word( 200, 0xCAFEBABE);
+
+        cpu.run_program(&mut memory);
+
+        // Expect R2 = 0xCAFEBABE and R1 remains 200.
+        assert_eq!(cpu.cpu_state.get_register(2), 0xCAFEBABE);
+        assert_eq!(cpu.cpu_state.get_register(1), 200);
+    }
+
+    // Test 3: LDM Pre-Indexed, add mode with write-back.
+    #[test]
+    fn test_cpu_ldm_pre_index_add_writeback() {
+        let mut memory = Memory::new(1024);
+        let mut cpu = Cpu::new();
+
+        // Set base register R5 = 300.
+        cpu.cpu_state.set_register(5, 300);
+
+        // Encode LDM: 0xE9B50015.
+        // This loads registers as indicated by bits in register_list = 0x0015 (R0, R2, R4).
+        memory.write_word( 0, 0xE9B50015);
+        memory.write_word(4, HALT);
+
+        // Pre-index: effective starting address = 300 + 4 = 304.
+        // Write values at sequential addresses:
+        memory.write_word(304, 0x11111111); // for R0
+        memory.write_word(308, 0x22222222); // for R2
+        memory.write_word(312, 0x33333333); // for R4
+
+        cpu.run_program(&mut memory);
+
+        // Verify loaded registers.
+        assert_eq!(cpu.cpu_state.get_register(0), 0x11111111);
+        assert_eq!(cpu.cpu_state.get_register(2), 0x22222222);
+        assert_eq!(cpu.cpu_state.get_register(4), 0x33333333);
+        // Write-back updates base R5: 300 + (3 * 4) = 312.
+        assert_eq!(cpu.cpu_state.get_register(5), 312);
+    }
+
+    // Test 4: LDM Post-Indexed, subtract mode with no write-back.
+    #[test]
+    fn test_cpu_ldm_post_index_subtract_no_writeback() {
+        let mut memory = Memory::new(1024);
+        let mut cpu = Cpu::new();
+
+        // Set base register R6 = 500.
+        cpu.cpu_state.set_register(6, 500);
+
+        // Encode LDM (load multiple): 0xE816002A.
+        // This chooses post-index (P=0), subtract mode (U=0), no write-back (W=0),
+        // and loads registers from register_list = 0x002A (R1, R3, R5).
+        memory.write_word( 0, 0xE816002A);
+        memory.write_word( 4, HALT);
+
+        // In post-index mode, effective address is the original base (500).
+        // Write memory for registers sequentially:
+        memory.write_word( 500, 0xAAAAAAAA); // for R1
+        memory.write_word(504, 0xBBBBBBBB); // for R3
+        memory.write_word( 508, 0xCCCCCCCC); // for R5
+
+        cpu.run_program(&mut memory);
+
+        // Verify registers loaded.
+        assert_eq!(cpu.cpu_state.get_register(1), 0xAAAAAAAA);
+        assert_eq!(cpu.cpu_state.get_register(3), 0xBBBBBBBB);
+        assert_eq!(cpu.cpu_state.get_register(5), 0xCCCCCCCC);
+        // Base register R6 remains unchanged.
+        assert_eq!(cpu.cpu_state.get_register(6), 500);
     }
 
     #[test]

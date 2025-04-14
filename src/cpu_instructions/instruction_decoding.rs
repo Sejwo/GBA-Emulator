@@ -1,7 +1,11 @@
 // src/cpu_instructions/instruction_decoding.rs
 
-#![allow(dead_code)]
+use std::sync::Arc;
 
+use crate::cpu_instructions::branch_ops::decode_branch;
+use crate::cpu_instructions::data_proc_instructions::decode_data_processing;
+use crate::cpu_instructions::load_store_instructions::{decode_single_data_transfer, decode_block_data_transfer};
+#[allow(dead_code)]
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum ShiftType {
     LSL,
@@ -9,7 +13,7 @@ pub enum ShiftType {
     ASR,
     ROR,
 }
-
+#[allow(dead_code)]
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Instruction {
     AddImmediate {
@@ -196,7 +200,6 @@ pub enum Instruction {
         shift_amount: u8,
         set_flags: bool,
     },
-
     //Branch instructions
     Branch {
         branch_type: crate::cpu_instructions::branch_ops::BranchType,
@@ -207,6 +210,21 @@ pub enum Instruction {
     },
     BranchLinkExchange {
         rm: usize, //It would seem GBA did not have BLX instruction, but I found it in another emulator so just for being safe/potential upgrade(idk why) I'm keeping it in
+    },
+    Ldr {
+        rt: usize,
+        rn: usize,
+        offset: u32,
+        pre_index: bool,
+        add: bool,
+        write_back: bool,
+    },
+    Ldm {
+        rn: usize,
+        register_list: u16,
+        pre_index: bool,
+        add: bool,
+        write_back: bool,
     },
     Unknown(u32),
     Nop,
@@ -220,249 +238,40 @@ pub fn decode_rotated_immediate(instruction: u32) -> u32 {
 }
 
 /// Decodes a 32-bit ARM instruction provided in native little-endian order.
+#[allow(dead_code)]
 pub fn decode_arm(instruction: u32) -> Instruction {
-    // Check for NOP first.
-    if instruction & 0x0FFF_FFF0 == 0x0320_F000 {
-        return Instruction::Nop;
-    }
-    //branch instructions
-    if ((instruction >> 25) & 0b111) == 0b101 {
-        let branch_type = if ((instruction >> 24) & 1) == 1 {
-            crate::cpu_instructions::branch_ops::BranchType::BL
-        } else {
-            crate::cpu_instructions::branch_ops::BranchType::B
-        };
-        let imm24 = instruction & 0x00FF_FFFF;
-        return Instruction::Branch { branch_type, imm24 };
-    } else if (instruction & 0x0FFFFFF0) == 0x012FFF10 {
-        let rm: usize = (instruction & 0xF) as usize;
-        return Instruction::BranchExchange { rm: rm };
+    // First, special-case branch exchanges.
+    if (instruction & 0x0FFFFFF0) == 0x012FFF10 {
+        return Instruction::BranchExchange { rm: (instruction & 0xF) as usize };
     } else if (instruction & 0x0FFFFFF0) == 0x012FFF30 {
-        let rm: usize = (instruction & 0xF) as usize;
-        return Instruction::BranchLinkExchange { rm: rm };
+        return Instruction::BranchLinkExchange { rm: (instruction & 0xF) as usize };
     }
 
-    if (instruction >> 26) & 0b11 == 0b00 {
-        // Extract common fields.
-        let opcode = (instruction >> 21) & 0xF;
-        // For immediate instructions we force set_flags true (per tests).
-        let s_extracted = ((instruction >> 20) & 1) == 1;
-        let rn = ((instruction >> 16) & 0xF) as usize;
-        let rd = ((instruction >> 12) & 0xF) as usize;
-        let i_bit = (instruction >> 25) & 1;
-        println!("Decoding instruction: {:X}", instruction);
-        println!("Opcode: {:X}", opcode);
-        println!("I-bit: {:X}", i_bit);
-
-        // Immediate data processing instructions.
-        if i_bit == 1 {
-            let imm12 = decode_rotated_immediate(instruction);
-            let set_flags = true; // Force true for immediate instructions per tests.
-            return match opcode {
-                0b0000 => Instruction::AndImmediate {
-                    rd,
-                    rn,
-                    imm12,
-                    set_flags,
-                },
-                0b0001 => Instruction::EorImmediate {
-                    rd,
-                    rn,
-                    imm12,
-                    set_flags,
-                },
-                0b0010 => Instruction::SubImmediate {
-                    rd,
-                    rn,
-                    imm12,
-                    set_flags,
-                },
-                0b0011 => Instruction::RsbImmediate {
-                    rd,
-                    rn,
-                    imm12,
-                    set_flags,
-                },
-                0b0110 => Instruction::SbcImmediate {
-                    rd,
-                    rn,
-                    imm12,
-                    set_flags,
-                },
-                0b0100 => Instruction::AddImmediate {
-                    rd,
-                    rn,
-                    imm12,
-                    set_flags,
-                },
-                0b0101 => Instruction::AdcImmediate {
-                    rd,
-                    rn,
-                    imm12,
-                    set_flags,
-                },
-                0b0111 => Instruction::RscImmediate {
-                    rd,
-                    rn,
-                    imm12,
-                    set_flags,
-                },
-                0b1010 => Instruction::CmpImmediate { rn, imm12 },
-                0b1011 => Instruction::CmnImmediate { rn, imm12 },
-                0b1100 => Instruction::OrrImmediate {
-                    rd,
-                    rn,
-                    imm12,
-                    set_flags,
-                },
-                0b1101 => Instruction::MovImmediate {
-                    rd,
-                    imm12,
-                    set_flags,
-                },
-                0b1110 => Instruction::BicImmediate {
-                    rd,
-                    rn,
-                    imm12,
-                    set_flags,
-                },
-                0b1111 => Instruction::MvnImmediate {
-                    rd,
-                    imm12,
-                    set_flags,
-                },
-
+    // First-tier: uses bits 27:26.
+    let group26 = (instruction >> 26) & 0b11;
+    match group26 {
+        0b00 => {
+            // Data processing instructions (both immediate and register)
+            decode_data_processing(instruction)
+        },
+        0b01 => {
+            // Single data transfer instructions (e.g. LDR/STR)
+            decode_single_data_transfer(instruction)
+        },
+        0b10 => {
+            // This group contains both block data transfer AND branch instructions.
+            // Uses bits 27:25 (three bits) to differentiate.
+            let group25 = (instruction >> 25) & 0b111;
+            match group25 {
+                0b100 => decode_block_data_transfer(instruction),  // LDM/STM
+                0b101 => decode_branch(instruction),               // Branch
                 _ => Instruction::Unknown(instruction),
-            };
-        }
-
-        // Register-based data processing instructions.
-        // (Remove check for bit 4 so that we always decode using the immediate shift field.)
-        if i_bit == 0 {
-            let shift_amount = ((instruction >> 7) & 0b11111) as u8;
-            let shift_type = match (instruction >> 5) & 0b11 {
-                0b00 => ShiftType::LSL,
-                0b01 => ShiftType::LSR,
-                0b10 => ShiftType::ASR,
-                0b11 => ShiftType::ROR,
-                _ => unreachable!(),
-            };
-            let rm = (instruction & 0xF) as usize;
-            // For register instructions, use the extracted S bit.
-            let set_flags = s_extracted;
-            return match opcode {
-                0b0000 => Instruction::AndRegister {
-                    rd,
-                    rn,
-                    rm,
-                    shift: shift_type,
-                    shift_amount,
-                    set_flags,
-                },
-                0b0001 => Instruction::EorRegister {
-                    rd,
-                    rn,
-                    rm,
-                    shift: shift_type,
-                    shift_amount,
-                    set_flags,
-                },
-                0b0010 => Instruction::SubRegister {
-                    rd,
-                    rn,
-                    rm,
-                    shift: shift_type,
-                    shift_amount,
-                    set_flags,
-                },
-                0b0011 => Instruction::RsbRegister {
-                    rd,
-                    rn,
-                    rm,
-                    shift: shift_type,
-                    shift_amount,
-                    set_flags,
-                },
-                0b0110 => Instruction::SbcRegister {
-                    rd,
-                    rn,
-                    rm,
-                    shift: shift_type,
-                    shift_amount,
-                    set_flags,
-                },
-                0b0111 => Instruction::RscRegister {
-                    rd,
-                    rn,
-                    rm,
-                    shift: shift_type,
-                    shift_amount,
-                    set_flags,
-                },
-                0b0100 => Instruction::AddRegister {
-                    rd,
-                    rn,
-                    rm,
-                    shift: shift_type,
-                    shift_amount,
-                    set_flags,
-                },
-                0b0101 => Instruction::AdcRegister {
-                    rd,
-                    rn,
-                    rm,
-                    shift: shift_type,
-                    shift_amount,
-                    set_flags,
-                },
-                0b1010 => Instruction::CmpRegister {
-                    rn,
-                    rm,
-                    shift: shift_type,
-                    shift_amount,
-                },
-                0b1011 => Instruction::CmnRegister {
-                    rn,
-                    rm,
-                    shift: shift_type,
-                    shift_amount,
-                },
-                0b1100 => Instruction::OrrRegister {
-                    rd,
-                    rn,
-                    rm,
-                    shift: shift_type,
-                    shift_amount,
-                    set_flags,
-                },
-                0b1101 => Instruction::MovRegister {
-                    rd,
-                    rm,
-                    shift: shift_type,
-                    shift_amount,
-                    set_flags,
-                },
-                0b1110 => Instruction::BicRegister {
-                    rd,
-                    rn,
-                    rm,
-                    shift: shift_type,
-                    shift_amount,
-                    set_flags,
-                },
-                0b1111 => Instruction::MvnRegister {
-                    rd,
-                    rm,
-                    shift: shift_type,
-                    shift_amount,
-                    set_flags,
-                },
-                _ => Instruction::Unknown(instruction),
-            };
-        } else {
+            }
+        },
+        0b11 => {
+            // Other instructions (coprocessor, etc.) not implemented yet.
             Instruction::Unknown(instruction)
-        };
+        },
+        _ => Instruction::Unknown(instruction),
     }
-
-    Instruction::Unknown(instruction)
 }

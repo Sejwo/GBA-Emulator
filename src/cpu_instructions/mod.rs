@@ -1,3 +1,4 @@
 pub mod instruction_decoding;
-pub mod all_instructions_arm;
+pub mod data_proc_instructions;
 pub mod branch_ops;
+pub mod load_store_instructions;

@@ -38,5 +38,9 @@ impl Memory{
         }
         self.data[address as usize .. end].copy_from_slice(bytes);
     }
+    pub fn write_word(&mut self, addr: u32, word: u32) {
+        let bytes = word.to_le_bytes();
+        self.write_bytes(addr, &bytes);
+    }
 
 }

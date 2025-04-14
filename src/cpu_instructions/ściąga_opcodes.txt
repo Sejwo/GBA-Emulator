@@ -23,10 +23,10 @@ Group 2: Branch Instructions(4/4)
 * [x] BX (Branch and Exchange) - branch_and_exchange: Branches and switches instruction set (ARM/Thumb).
 * [x] BLX (Branch with Link and Exchange) - branch_link_and_exchange: Branches with link and switches instruction set.
 
-Group 3: Load/Store Instructions(0/16)
+Group 3: Load/Store Instructions(2/16)
 
-*LDM (Load Multiple) - load_multiple, load_multiple_db, load_multiple_ib: Loads multiple registers from memory.
-*LDR (Load Register) - load_register: Loads a word from memory into a register.
+* [x] LDM (Load Multiple) - load_multiple, load_multiple_db, load_multiple_ib: Loads multiple registers from memory.
+* [x] LDR (Load Register) - load_register: Loads a word from memory into a register.
 *LDRB (Load Byte) - load_byte: Loads a byte from memory into a register.
 *LDRD (Load Doubleword) - load_doubleword: Loads a doubleword from memory into two registers.
 *LDREX (Load Exclusive) - load_exclusive: Loads a word from memory for exclusive access.

@@ -31,5 +31,5 @@ fn main() {
     cpu.cpu_state.set_register(15, 0);
 
     // Run the program. The CPU will fetch, decode, and execute instructions in a loop.
-    cpu.run_program(&memory);
+    cpu.run_program(&mut memory);
 }

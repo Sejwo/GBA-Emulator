@@ -1,5 +1,6 @@
 use std::thread::current;
 
+use crate::cpu_instructions::instruction_decoding::Instruction;
 use crate::cpu::Cpu;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -61,5 +62,28 @@ impl BranchOps for Cpu {
         self.cpu_state.set_register(14, return_address);
         println!("BLX executed: Saving return address 0x{:08X} in R14", return_address);
         self.branch_exchange(rm);
+    }
+}
+
+
+
+pub fn decode_branch(instruction:u32) -> Instruction{
+    //branch instructions
+    if ((instruction >> 25) & 0b111) == 0b101 {
+        let branch_type = if ((instruction >> 24) & 1) == 1 {
+            crate::cpu_instructions::branch_ops::BranchType::BL
+        } else {
+            crate::cpu_instructions::branch_ops::BranchType::B
+        };
+        let imm24 = instruction & 0x00FF_FFFF;
+        return Instruction::Branch { branch_type, imm24 };
+    } else if (instruction & 0x0FFFFFF0) == 0x012FFF10 {
+        let rm: usize = (instruction & 0xF) as usize;
+        return Instruction::BranchExchange { rm: rm };
+    } else if (instruction & 0x0FFFFFF0) == 0x012FFF30 {
+        let rm: usize = (instruction & 0xF) as usize;
+        return Instruction::BranchLinkExchange { rm: rm };
+    }else{
+        return Instruction::Unknown(instruction);
     }
 }

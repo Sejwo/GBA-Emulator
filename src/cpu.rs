@@ -296,7 +296,7 @@ impl Cpu {
         }
     }
     // Placeholder for interpreting a single instruction.
-    fn interpret_instruction(&mut self, instruction: u32) {
+    fn interpret_instruction(&mut self, instruction: u32, memory: &mut Memory) {
         // Perform the condition check *here*
         let condition_passed = match decode_arm(instruction) {
             Instruction::Nop => true, // NOP always passes
@@ -581,19 +581,41 @@ impl Cpu {
                 Instruction::BranchExchange { rm } => {
                     self.branch_exchange(rm);
                 }
-                Instruction::BranchLinkExchange { rm } =>{
+                Instruction::BranchLinkExchange { rm } => {
                     self.branch_link_exchange(rm);
+                }
+                Instruction::Ldr {
+                    rt,
+                    rn,
+                    offset,
+                    pre_index,
+                    add,
+                    write_back,
+                } => {
+                    self.load_register(rt, rn, offset, pre_index, add, write_back, memory);
+                }
+                Instruction::Ldm {
+                    rn,
+                    register_list,
+                    pre_index,
+                    add,
+                    write_back,
+                } => {
+                    self.load_multiple(rn, register_list, pre_index, add, write_back, memory);
                 }
                 Instruction::Unknown(instruction) => {
                     // Handle unknown instructions (e.g., raise an exception).
                     panic!("Unknown instruction: 0x{:X}", instruction);
                 }
                 Instruction::Nop => {} // Do nothing for NOP
+                _ => {
+                    todo!("unreached");
+                }
             }
         }
     }
 
-    pub fn run_program(&mut self, memory: &Memory) {
+    pub fn run_program(&mut self, memory: &mut Memory) {
         const HALT_INSTRUCTION: u32 = 0xFFFFFFFF;
         loop {
             let (instruction, is_thumb) = self.cpu_state.fetch_instruction(memory);
@@ -609,7 +631,7 @@ impl Cpu {
                 break;
             }
             // Decode and execute the instruction.
-            self.interpret_instruction(instruction);
+            self.interpret_instruction(instruction, memory);
         }
     }
 }
