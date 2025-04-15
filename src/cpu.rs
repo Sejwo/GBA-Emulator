@@ -210,7 +210,7 @@ impl Cpsr {
 pub struct Cpu {
     pub cpu_state: CpuState,
 }
-
+#[allow(dead_code)]
 impl Cpu {
     pub fn new() -> Self {
         Cpu {
@@ -603,6 +603,10 @@ impl Cpu {
                 } => {
                     self.load_multiple(rn, register_list, pre_index, add, write_back, memory);
                 }
+                Instruction::Ldrb { rt, rn, offset, pre_index, add, write_back }
+                => {self.load_register_byte(rt, rn, offset, pre_index, add, write_back, memory);}
+                Instruction::Ldrd { rt, rn, offset, pre_index, add, write_back }
+                => {self.load_doubleword(rt, rn, offset, pre_index, add, write_back, memory);}
                 Instruction::Unknown(instruction) => {
                     // Handle unknown instructions (e.g., raise an exception).
                     panic!("Unknown instruction: 0x{:X}", instruction);
@@ -614,7 +618,7 @@ impl Cpu {
             }
         }
     }
-
+    #[allow(dead_code)]
     pub fn run_program(&mut self, memory: &mut Memory) {
         const HALT_INSTRUCTION: u32 = 0xFFFFFFFF;
         loop {

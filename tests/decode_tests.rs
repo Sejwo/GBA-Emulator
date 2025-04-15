@@ -700,7 +700,7 @@ mod tests {
         // Since the LSB was set, the Thumb mode flag should be on.
         assert!(cpu.cpu_state.CPSR.is_thumb_state());
     }
-    // Test 1: LDR Pre-Indexed, add mode with write-back.
+    // LDR Pre-Indexed, add mode with write-back.
     #[test]
     fn test_cpu_ldr_pre_index_add_writeback() {
         let mut memory = Memory::new(1024);
@@ -726,7 +726,7 @@ mod tests {
         assert_eq!(cpu.cpu_state.get_register(1), 108);
     }
 
-    // Test 2: LDR Post-Indexed, add mode with no write-back.
+    // LDR Post-Indexed, add mode with no write-back.
     #[test]
     fn test_cpu_ldr_post_index_no_writeback() {
         let mut memory = Memory::new(1024);
@@ -749,7 +749,7 @@ mod tests {
         assert_eq!(cpu.cpu_state.get_register(1), 200);
     }
 
-    // Test 3: LDM Pre-Indexed, add mode with write-back.
+    // LDM Pre-Indexed, add mode with write-back.
     #[test]
     fn test_cpu_ldm_pre_index_add_writeback() {
         let mut memory = Memory::new(1024);
@@ -779,7 +779,7 @@ mod tests {
         assert_eq!(cpu.cpu_state.get_register(5), 312);
     }
 
-    // Test 4: LDM Post-Indexed, subtract mode with no write-back.
+    //LDM Post-Indexed, subtract mode with no write-back.
     #[test]
     fn test_cpu_ldm_post_index_subtract_no_writeback() {
         let mut memory = Memory::new(1024);
@@ -808,6 +808,127 @@ mod tests {
         assert_eq!(cpu.cpu_state.get_register(5), 0xCCCCCCCC);
         // Base register R6 remains unchanged.
         assert_eq!(cpu.cpu_state.get_register(6), 500);
+    }
+
+    // LDRB Pre-Indexed, Add mode with write-back.
+    #[test]
+    fn test_ldrb_pre_index() {
+        let mut memory = Memory::new(1024);
+        let mut cpu = Cpu::new();
+
+        // Set the base register R1 = 100.
+        cpu.cpu_state.set_register(1, 100);
+
+        // The LDRB instruction: 0xED703020 encodes:
+        //   - Condition: 0xE,
+        //   - Bits[27:26] = 01 (Single data transfer)
+        //   - I = 0 (immediate offset)
+        //   - P = 1 (pre-indexed)
+        //   - U = 1 (add offset)
+        //   - B = 1 (load byte)
+        //   - W = 1 (write-back)
+        //   - L = 1 (load)
+        //   - Rn = 1 and Rt = 2, offset = 0x20.
+        // Effective address = 100 + 0x20 = 132.
+        memory.write_word(0, 0xED703020);
+        memory.write_word(4, HALT);
+
+        // At effective address 132, place a byte value (e.g., 0xAB).
+        memory.write_bytes(132, &[0xAB]);
+
+        cpu.run_program(&mut memory);
+
+        // Verify: R2 should hold 0x000000AB (zero-extended)
+        // and write-back updates R1 to 132.
+        assert_eq!(cpu.cpu_state.get_register(2), 0xAB);
+        assert_eq!(cpu.cpu_state.get_register(1), 132);
+    }
+
+    // LDRB Post-Indexed, Add mode with no write-back.
+    #[test]
+    fn test_ldrb_post_index() {
+        let mut memory = Memory::new(1024);
+        let mut cpu = Cpu::new();
+
+        // Set the base register R1 = 200.
+        cpu.cpu_state.set_register(1, 200);
+
+        // LDRB post-index: same fields as before, but with:
+        //   P = 0 (post-index) and W = 0 (no write-back).
+        // Encoded instruction: 0xED512020.
+        // Effective address = base = 200.
+        memory.write_word(0, 0xED512020);
+        memory.write_word(4, HALT);
+
+        // Write a byte (e.g., 0xCD) at address 200.
+        memory.write_bytes(200, &[0xCD]);
+
+        cpu.run_program(&mut memory);
+
+        // Verify: R2 should hold 0x000000CD and R1 remains 200.
+        assert_eq!(cpu.cpu_state.get_register(2), 0xCD);
+        assert_eq!(cpu.cpu_state.get_register(1), 200);
+    }
+
+    // LDRD Pre-Indexed, Add mode with write-back.
+    #[test]
+    fn test_ldrd_pre_index() {
+        let mut memory = Memory::new(1024);
+        let mut cpu = Cpu::new();
+
+        // Set the base register R3 = 200.
+        cpu.cpu_state.set_register(3, 200);
+
+        // LDRD instruction: 0xED3340A0 encodes:
+        //   - Condition: 0xE,
+        //   - Bits[27:26] = 01,
+        //   - I = 0, P = 1, U = 1, B = 0 (normal word load),
+        //   - W = 1 (write-back), L = 1 (load),
+        //   - Rn = 3, Rt = 4, offset = 0xA0.
+        // Effective address = 200 + 0xA0 (160) = 360.
+        memory.write_word(0, 0xED3340A0);
+        memory.write_word(4, HALT);
+
+        // Write the lower word at address 360 and the upper word at address 364.
+        memory.write_word(360, 0xDEADBEEF);
+        memory.write_word(364, 0xFEEDFACE);
+
+        cpu.run_program(&mut memory);
+
+        // Verify: R4 should be 0xDEADBEEF, R5 should be 0xFEEDFACE,
+        // and write-back updates R3 to 360.
+        assert_eq!(cpu.cpu_state.get_register(4), 0xDEADBEEF);
+        assert_eq!(cpu.cpu_state.get_register(5), 0xFEEDFACE);
+        assert_eq!(cpu.cpu_state.get_register(3), 360);
+    }
+
+    // Test 4: LDRD Post-Indexed, Subtract mode with no write-back.
+    #[test]
+    fn test_ldrd_post_index() {
+        let mut memory = Memory::new(1024);
+        let mut cpu = Cpu::new();
+
+        // Set the base register R3 = 400.
+        cpu.cpu_state.set_register(3, 400);
+
+        // LDRD post-index: based on our previous LDRD encoding (0xED3340A0),
+        // if we clear P (pre-index) and W (write-back) bits we get:
+        //   0xED3340A0 - 0x01000000 (P) - 0x00200000 (W) = 0xEC1340A0.
+        // Effective address = base = 400.
+        memory.write_word(0, 0xEC1340A0);
+        memory.write_word(4, HALT);
+
+        // At address 400, write lower word and at 404, write upper word.
+        memory.write_word(400, 0xAAAAAAAA);
+        memory.write_word(404, 0xBBBBBBBB);
+
+        cpu.run_program(&mut memory);
+
+        // Verify: R4 should be 0xAAAAAAAA, R5 = 0xBBBBBBBB,
+        // and since write-back is disabled, R3 remains 400.
+        assert_eq!(cpu.cpu_state.get_register(4), 0xAAAAAAAA);
+        assert_eq!(cpu.cpu_state.get_register(5), 0xBBBBBBBB);
+        assert_eq!(cpu.cpu_state.get_register(3), 400);
     }
 
     #[test]

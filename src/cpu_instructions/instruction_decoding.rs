@@ -4,7 +4,9 @@ use std::sync::Arc;
 
 use crate::cpu_instructions::branch_ops::decode_branch;
 use crate::cpu_instructions::data_proc_instructions::decode_data_processing;
-use crate::cpu_instructions::load_store_instructions::{decode_single_data_transfer, decode_block_data_transfer};
+use crate::cpu_instructions::load_store_instructions::{
+    decode_block_data_transfer, decode_single_data_transfer,
+};
 #[allow(dead_code)]
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum ShiftType {
@@ -226,6 +228,22 @@ pub enum Instruction {
         add: bool,
         write_back: bool,
     },
+    Ldrb {
+        rt: usize,
+        rn: usize,
+        offset: u32,
+        pre_index: bool,
+        add: bool,
+        write_back: bool,
+    },
+    Ldrd {
+        rt: usize,
+        rn: usize,
+        offset: u32,
+        pre_index: bool,
+        add: bool,
+        write_back: bool,
+    },
     Unknown(u32),
     Nop,
 }
@@ -238,7 +256,6 @@ pub fn decode_rotated_immediate(instruction: u32) -> u32 {
 }
 
 /// Decodes a 32-bit ARM instruction provided in native little-endian order.
-#[allow(dead_code)]
 pub fn decode_arm(instruction: u32) -> Instruction {
     // First, special-case branch exchanges.
     if (instruction & 0x0FFFFFF0) == 0x012FFF10 {
@@ -246,32 +263,24 @@ pub fn decode_arm(instruction: u32) -> Instruction {
     } else if (instruction & 0x0FFFFFF0) == 0x012FFF30 {
         return Instruction::BranchLinkExchange { rm: (instruction & 0xF) as usize };
     }
-
-    // First-tier: uses bits 27:26.
-    let group26 = (instruction >> 26) & 0b11;
+    
+    let cond = (instruction >> 28) & 0xF;
+    let mut group26 = (instruction >> 26) & 0b11;
+    if cond == 0xE && group26 == 0b11 {
+        group26 = 0b01;
+    }
     match group26 {
-        0b00 => {
-            // Data processing instructions (both immediate and register)
-            decode_data_processing(instruction)
-        },
-        0b01 => {
-            // Single data transfer instructions (e.g. LDR/STR)
-            decode_single_data_transfer(instruction)
-        },
+        0b00 => decode_data_processing(instruction),
+        0b01 => decode_single_data_transfer(instruction),
         0b10 => {
-            // This group contains both block data transfer AND branch instructions.
-            // Uses bits 27:25 (three bits) to differentiate.
             let group25 = (instruction >> 25) & 0b111;
             match group25 {
-                0b100 => decode_block_data_transfer(instruction),  // LDM/STM
-                0b101 => decode_branch(instruction),               // Branch
+                0b100 => decode_block_data_transfer(instruction),
+                0b101 => decode_branch(instruction),
                 _ => Instruction::Unknown(instruction),
             }
         },
-        0b11 => {
-            // Other instructions (coprocessor, etc.) not implemented yet.
-            Instruction::Unknown(instruction)
-        },
+        0b11 => Instruction::Unknown(instruction),
         _ => Instruction::Unknown(instruction),
     }
 }
