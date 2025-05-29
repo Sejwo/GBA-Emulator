@@ -1,6 +1,6 @@
 STILL IN EARLY DEVELOPMENT
 
-Hopefully I finish it before I need to start writing my master's thesis so for now updates will be regular, don't know about the future.
+Hopefully I finish it before I need to start writing my master's thesis so for now updates will be regular, don't know about the future. (paused for master's thesis after all)
 
 I've seen some other projects like this, others focused more on the pure ARMv7 architechture if I borrow something it's from:
 
